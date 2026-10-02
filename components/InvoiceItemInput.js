@@ -68,7 +68,7 @@ const styles = StyleSheet.create({
   },
   input: {
     marginBottom: 8,
-    backgroundColor: 'white',
+    backgroundColor: 'black',
   },
   row: {
     flexDirection: 'row',
