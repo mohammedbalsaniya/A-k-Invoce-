@@ -6,36 +6,37 @@
     "orientation": "portrait",
     "scheme": "ak-invoice",
     "userInterfaceStyle": "automatic",
-
-    "icon": "./assets/images/icon.jpg",
-
-    "splash": {
-      "image": "./assets/images/splash-icon.jpg",
-      "resizeMode": "contain",
-      "backgroundColor": "#ffffff"
-    },
-
+    "icon": "./assets/images/icon.png",
     "android": {
       "package": "com.akplastic.invoice",
       "adaptiveIcon": {
-        "foregroundImage": "./assets/images/adaptive-icon.jpg",
+        "foregroundImage": "./assets/images/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       }
     },
-
     "web": {
       "favicon": "./assets/images/favicon.jpg"
     },
-
     "ios": {
       "bundleIdentifier": "com.akplastic.invoice"
     },
-
     "plugins": [
       "expo-router",
-      "expo-sqlite"
+      "expo-sqlite",
+      "expo-font",
+      "expo-image",
+      "expo-sharing",
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/images/splash-icon.png",
+          "imageWidth": 200,
+          "backgroundColor": "#ffffff"
+        }
+      ],
+      "expo-status-bar",
+      "expo-web-browser"
     ],
-
     "extra": {
       "eas": {
         "projectId": "df4be8ba-885f-4308-ac55-de5747792c37"

@@ -1,8 +1,9 @@
-import { View, StyleSheet, ScrollView } from 'react-native';
+import { StyleSheet } from 'react-native';
 import { TextInput, Button, Text, useTheme } from 'react-native-paper';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { customerSchema } from '../utils/validation';
+import { SafeAreaScrollView } from './SafeAreaContent';
 
 export default function CustomerForm({ initialValues, onSubmit, loading, title }) {
   const theme = useTheme();
@@ -18,7 +19,7 @@ export default function CustomerForm({ initialValues, onSubmit, loading, title }
   });
 
   return (
-    <ScrollView style={[styles.container, { backgroundColor: theme.colors.background }]}>
+    <SafeAreaScrollView style={[styles.container, { backgroundColor: theme.colors.background }]}>
       <Text variant="headlineSmall" style={styles.title}>{title}</Text>
       
       <Controller
@@ -99,7 +100,7 @@ export default function CustomerForm({ initialValues, onSubmit, loading, title }
       >
         {initialValues ? 'Update Customer' : 'Save Customer'}
       </Button>
-    </ScrollView>
+    </SafeAreaScrollView>
   );
 }
 

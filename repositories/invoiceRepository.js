@@ -80,14 +80,16 @@ export const invoiceRepository = {
           description,
           hsn,
           qty,
+          weight_per_piece,
           rate,
           amount
-        ) VALUES (?, ?, ?, ?, ?, ?)`,
+        ) VALUES (?, ?, ?, ?, ?, ?, ?)`,
           [
             invoiceId,
             item.description,
             item.hsn,
             item.qty,
+            item.weightPerPiece || 0,
             item.rate,
             item.amount
           ]
@@ -101,6 +103,14 @@ export const invoiceRepository = {
   updatePdfPath: async (id, path) => {
     const db = await getDbConnection();
     return await db.runAsync('UPDATE invoices SET pdfPath = ? WHERE id = ?', [path, id]);
+  },
+
+  setStatementInclusion: async (id, included) => {
+    const db = await getDbConnection();
+    return await db.runAsync(
+      'UPDATE invoices SET include_in_statement = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
+      [included ? 1 : 0, id]
+    );
   },
 
   delete: async (id) => {
