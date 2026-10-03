@@ -1,9 +1,12 @@
-import { View, StyleSheet, ScrollView } from 'react-native';
-import { Text, Card, useTheme, Button, Divider, DataTable } from 'react-native-paper';
+import { Alert, View, StyleSheet } from 'react-native';
+import { Text, Card, useTheme, Button, Divider, DataTable, Switch } from 'react-native-paper';
 import { useLocalSearchParams, } from 'expo-router';
 import { useInvoiceStore } from '../../stores/invoiceStore';
 import { useEffect } from 'react';
 import { pdfService } from '../../services/pdfService';
+import { pdfOpenService } from '../../services/pdfOpenService';
+import { invoiceRepository } from '../../repositories/invoiceRepository';
+import { SafeAreaScrollView } from '../../components/SafeAreaContent';
 
 export default function InvoiceDetails() {
   const { id } = useLocalSearchParams();
@@ -13,7 +16,7 @@ const { currentInvoice, fetchInvoiceById } = useInvoiceStore();
 
   useEffect(() => {
     fetchInvoiceById(id);
-  }, [id]);
+  }, [fetchInvoiceById, id]);
 
   if (!currentInvoice) {
     return (
@@ -24,13 +27,45 @@ const { currentInvoice, fetchInvoiceById } = useInvoiceStore();
   }
 
   const handleShare = async () => {
-    if (currentInvoice.pdfPath) {
-      await pdfService.sharePDF(currentInvoice.pdfPath);
+    try {
+      const path = await pdfOpenService.ensureInvoicePdf(Number(id));
+      await pdfService.sharePDF(path);
+    } catch (error) {
+      Alert.alert('Could not share PDF', error.message);
+    }
+  };
+
+  const handleOpen = async () => {
+    try {
+      const path = await pdfOpenService.ensureInvoicePdf(Number(id));
+      await pdfService.openPDF(path);
+    } catch (error) {
+      Alert.alert('Could not open PDF', `No compatible PDF viewer may be installed. ${error.message}`);
+    }
+  };
+
+  const saveInclusion = async include => {
+    try {
+      await invoiceRepository.setStatementInclusion(Number(id), include);
+      await fetchInvoiceById(id);
+    } catch (error) {
+      Alert.alert('Could not update invoice', error.message);
+    }
+  };
+
+  const handleInclusionChange = include => {
+    if (!include) {
+      Alert.alert('Exclude invoice?', `Exclude ${currentInvoice.invoiceNo} from monthly statement?`, [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Exclude', onPress: () => saveInclusion(false) },
+      ]);
+    } else {
+      saveInclusion(true);
     }
   };
 
   return (
-    <ScrollView style={[styles.container, { backgroundColor: theme.colors.background }]}>
+    <SafeAreaScrollView style={[styles.container, { backgroundColor: theme.colors.background }]}>
       <Card style={styles.card}>
         <Card.Title title={`Invoice: ${currentInvoice.invoiceNo}`} subtitle={`Date: ${currentInvoice.invoiceDate}`} />
         <Card.Content>
@@ -38,6 +73,13 @@ const { currentInvoice, fetchInvoiceById } = useInvoiceStore();
           <Text>{currentInvoice.customerName}</Text>
           <Text>{currentInvoice.customerAddress}</Text>
           <Text>GST: {currentInvoice.customerGST || 'N/A'}</Text>
+          <View style={styles.inclusionRow}>
+            <View style={styles.flex1}>
+              <Text variant="titleSmall">Include in Statement</Text>
+              <Text variant="bodySmall">{currentInvoice.include_in_statement === 0 ? 'Not Included' : 'Included'}</Text>
+            </View>
+            <Switch value={currentInvoice.include_in_statement !== 0} onValueChange={handleInclusionChange} />
+          </View>
           <Divider style={{ marginVertical: 12 }} />
           <View style={styles.row}>
             <View style={styles.flex1}>
@@ -66,6 +108,7 @@ const { currentInvoice, fetchInvoiceById } = useInvoiceStore();
             <DataTable.Header>
               <DataTable.Title>Item</DataTable.Title>
               <DataTable.Title numeric>Qty</DataTable.Title>
+              <DataTable.Title numeric>Wt/Pc</DataTable.Title>
               <DataTable.Title numeric>Amount</DataTable.Title>
             </DataTable.Header>
 
@@ -73,6 +116,7 @@ const { currentInvoice, fetchInvoiceById } = useInvoiceStore();
               <DataTable.Row key={index}>
                 <DataTable.Cell>{item.description}</DataTable.Cell>
                 <DataTable.Cell numeric>{item.qty}</DataTable.Cell>
+                <DataTable.Cell numeric>{item.weight_per_piece || 0}</DataTable.Cell>
                 <DataTable.Cell numeric>₹{item.amount}</DataTable.Cell>
               </DataTable.Row>
             ))}
@@ -120,12 +164,12 @@ const { currentInvoice, fetchInvoiceById } = useInvoiceStore();
           Share PDF
         </Button>
         <View style={{ width: 16 }} />
-        <Button mode="outlined" icon="file-pdf-box" onPress={() => { }} style={styles.flex1}>
+        <Button mode="outlined" icon="file-pdf-box" onPress={handleOpen} style={styles.flex1}>
           Open PDF
         </Button>
       </View>
       <View style={{ height: 40 }} />
-    </ScrollView>
+    </SafeAreaScrollView>
   );
 }
 
@@ -151,5 +195,11 @@ const styles = StyleSheet.create({
   actions: {
     flexDirection: 'row',
     marginTop: 8,
-  }
+  },
+  inclusionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 12,
+    paddingVertical: 8,
+  },
 });

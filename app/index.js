@@ -1,8 +1,9 @@
-import { View, StyleSheet, ScrollView } from 'react-native';
+import { View, StyleSheet } from 'react-native';
 import { Card, Text, IconButton, useTheme } from 'react-native-paper';
 import { useRouter } from 'expo-router';
 import { useEffect } from 'react';
 import { useInvoiceStore } from '../stores/invoiceStore';
+import { SafeAreaScrollView } from '../components/SafeAreaContent';
 export default function Dashboard() {
   const router = useRouter();
   const theme = useTheme();
@@ -14,18 +15,20 @@ export default function Dashboard() {
 
   useEffect(() => {
     fetchInvoices();
-  }, []);
+  }, [fetchInvoices]);
   const menuItems = [
     { title: 'New Invoice', icon: 'file-plus', route: '/invoices/create', color: '#1a73e8' },
     { title: 'Customers', icon: 'account-group', route: '/customers', color: '#34a853' },
     { title: 'Invoice History', icon: 'file-clock', route: '/invoices/history', color: '#fbbc04' },
+    { title: 'Raw Material', icon: 'package-variant-closed', route: '/raw-material', color: '#00acc1' },
+    { title: 'Statements', icon: 'file-chart', route: '/statements', color: '#8e24aa' },
     { title: 'Settings', icon: 'cog', route: '/settings', color: '#ea4335' },
   ];
 
   return (
-    <ScrollView style={[styles.container, { backgroundColor: theme.colors.background }]}>
+    <SafeAreaScrollView style={[styles.container, { backgroundColor: theme.colors.background }]}>
       <View style={styles.header}>
-        <Text variant="headlineMedium" style={{ fontWeight: 'bold' }}>Invoice Pro</Text>
+        <Text variant="headlineMedium" style={{ fontWeight: 'bold' }}>A K PLASTIC</Text>
         <Text variant="bodyLarge" style={{ color: theme.colors.secondary }}>Offline Billing Solution</Text>
       </View>
 
@@ -61,7 +64,7 @@ export default function Dashboard() {
           </View>
         </Card.Content>
       </Card>
-    </ScrollView>
+    </SafeAreaScrollView>
   );
 }
 

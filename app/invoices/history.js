@@ -1,9 +1,11 @@
-import { View, StyleSheet, FlatList } from 'react-native';
-import { Text, List, useTheme, IconButton, Card, Searchbar } from 'react-native-paper';
+import { Alert, View, StyleSheet } from 'react-native';
+import { Text, useTheme, IconButton, Card, Searchbar } from 'react-native-paper';
 import { useRouter } from 'expo-router';
 import { useInvoiceStore } from '../../stores/invoiceStore';
 import { useEffect, useState } from 'react';
 import { pdfService } from '../../services/pdfService';
+import { pdfOpenService } from '../../services/pdfOpenService';
+import { SafeAreaFlatList } from '../../components/SafeAreaContent';
 
 export default function InvoiceHistory() {
   const router = useRouter();
@@ -13,18 +15,31 @@ export default function InvoiceHistory() {
 
   useEffect(() => {
     fetchInvoices();
-  }, []);
+  }, [fetchInvoices]);
 
   const filteredInvoices = invoices.filter(i => 
     i.invoiceNo.toLowerCase().includes(searchQuery.toLowerCase()) ||
     i.customerName.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  const handleShare = async (filePath) => {
-    if (filePath) {
-      await pdfService.sharePDF(filePath);
+  const handlePdfAction = async (id, open) => {
+    try {
+      const path = await pdfOpenService.ensureInvoicePdf(id);
+      if (open) await pdfService.openPDF(path);
+      else await pdfService.sharePDF(path);
+    } catch (error) {
+      Alert.alert(open ? 'Could not open PDF' : 'Could not share PDF', error.message);
     }
   };
+
+  const confirmDelete = item => Alert.alert(
+    'Delete invoice?',
+    `This permanently removes ${item.invoiceNo} and its items. To keep it in history but leave it out of a statement, switch off Include in Statement instead.`,
+    [
+      { text: 'Keep Invoice', style: 'cancel' },
+      { text: 'Delete', style: 'destructive', onPress: () => deleteInvoice(item.id) },
+    ]
+  );
 
   const renderItem = ({ item }) => (
     <Card style={styles.card} onPress={() => router.push(`/invoices/${item.id}`)}>
@@ -34,12 +49,16 @@ export default function InvoiceHistory() {
             <Text variant="titleSmall">{item.invoiceNo}</Text>
             <Text variant="bodyMedium">{item.customerName}</Text>
             <Text variant="bodySmall" style={{ color: theme.colors.secondary }}>{item.invoiceDate}</Text>
+            <Text variant="bodySmall" style={{ color: theme.colors.secondary }}>
+              {item.include_in_statement === 0 ? 'Not Included' : 'Included'}
+            </Text>
           </View>
           <View style={{ alignItems: 'flex-end' }}>
             <Text variant="titleMedium" style={{ fontWeight: 'bold' }}>₹{item.grandTotal}</Text>
             <View style={{ flexDirection: 'row' }}>
-              <IconButton icon="share-variant" size={20} onPress={() => handleShare(item.pdfPath)} />
-              <IconButton icon="delete" size={20} iconColor={theme.colors.error} onPress={() => deleteInvoice(item.id)} />
+              <IconButton icon="file-pdf-box" size={20} onPress={() => handlePdfAction(item.id, true)} />
+              <IconButton icon="share-variant" size={20} onPress={() => handlePdfAction(item.id, false)} />
+              <IconButton icon="delete" size={20} iconColor={theme.colors.error} onPress={() => confirmDelete(item)} />
             </View>
           </View>
         </View>
@@ -61,7 +80,7 @@ export default function InvoiceHistory() {
           <Text variant="bodyLarge">No invoices found</Text>
         </View>
       ) : (
-        <FlatList
+        <SafeAreaFlatList
           data={filteredInvoices}
           renderItem={renderItem}
           keyExtractor={item => item.id.toString()}

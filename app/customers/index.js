@@ -1,19 +1,21 @@
-import { View, StyleSheet, FlatList } from 'react-native';
+import { Alert, View, StyleSheet } from 'react-native';
 import { Text, FAB, List, Searchbar, useTheme, IconButton } from 'react-native-paper';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { useCustomerStore } from '../../stores/customerStore';
-import { useEffect, useState, useCallback } from 'react';
+import { useState, useCallback } from 'react';
+import { SafeAreaFlatList, useBottomSafeArea } from '../../components/SafeAreaContent';
 
 export default function CustomerList() {
   const router = useRouter();
   const theme = useTheme();
+  const bottomOffset = useBottomSafeArea();
   const { customers, fetchCustomers, searchCustomers, deleteCustomer, loading } = useCustomerStore();
   const [searchQuery, setSearchQuery] = useState('');
 
   useFocusEffect(
     useCallback(() => {
       fetchCustomers();
-    }, [])
+    }, [fetchCustomers])
   );
 
 
@@ -21,6 +23,15 @@ export default function CustomerList() {
     setSearchQuery(query);
     searchCustomers(query);
   };
+
+  const confirmDelete = customer => Alert.alert(
+    'Delete customer?',
+    `Deleting ${customer.name} also removes its invoices and raw-material entries.`,
+    [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Delete', style: 'destructive', onPress: () => deleteCustomer(customer.id) },
+    ]
+  );
 
   const renderItem = ({ item }) => (
     <List.Item
@@ -30,7 +41,7 @@ export default function CustomerList() {
       right={props => (
         <View style={{ flexDirection: 'row' }}>
           <IconButton icon="pencil" onPress={() => router.push({ pathname: '/customers/edit', params: { id: item.id } })} />
-          <IconButton icon="delete" iconColor={theme.colors.error} onPress={() => deleteCustomer(item.id)} />
+          <IconButton icon="delete" iconColor={theme.colors.error} onPress={() => confirmDelete(item)} />
         </View>
       )}
       onPress={() => router.push({ pathname: '/customers/edit', params: { id: item.id } })}
@@ -52,11 +63,11 @@ export default function CustomerList() {
           <Text variant="bodyLarge">No customers found</Text>
         </View>
       ) : (
-        <FlatList
+        <SafeAreaFlatList
           data={customers}
           renderItem={renderItem}
           keyExtractor={item => item.id.toString()}
-          contentContainerStyle={{ paddingBottom: 80 }}
+          bottomSpacing={88}
           onRefresh={fetchCustomers}
           refreshing={loading}
         />
@@ -64,7 +75,7 @@ export default function CustomerList() {
 
       <FAB
         icon="plus"
-        style={[styles.fab, { backgroundColor: theme.colors.primary }]}
+        style={[styles.fab, { backgroundColor: theme.colors.primary, bottom: bottomOffset }]}
         color="white"
         onPress={() => router.push('/customers/create')}
       />
@@ -84,7 +95,6 @@ const styles = StyleSheet.create({
     position: 'absolute',
     margin: 16,
     right: 0,
-    bottom: 0,
   },
   emptyState: {
     flex: 1,

@@ -3,9 +3,11 @@ import { TextInput, IconButton, Text, useTheme } from 'react-native-paper';
 
 export default function InvoiceItemInput({ item, index, onChange, onRemove }) {
   const theme = useTheme();
+  const inputStyle = [styles.input, theme.dark && styles.darkInput];
+  const inputTextColor = theme.dark ? '#ffffff' : undefined;
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: theme.dark ? '#292f38' : theme.colors.surfaceVariant }]}>
       <View style={styles.header}>
         <Text variant="titleSmall">Item #{index + 1}</Text>
         <IconButton icon="close-circle" iconColor={theme.colors.error} onPress={() => onRemove(index)} size={20} />
@@ -16,7 +18,8 @@ export default function InvoiceItemInput({ item, index, onChange, onRemove }) {
         value={item.description}
         onChangeText={(val) => onChange(index, 'description', val)}
         mode="outlined"
-        style={styles.input}
+        style={inputStyle}
+        textColor={inputTextColor}
       />
       
       <View style={styles.row}>
@@ -25,22 +28,36 @@ export default function InvoiceItemInput({ item, index, onChange, onRemove }) {
           value={item.hsn}
           onChangeText={(val) => onChange(index, 'hsn', val)}
           mode="outlined"
-          style={[styles.input, { flex: 1, marginRight: 8 }]}
+          style={[inputStyle, { flex: 1, marginRight: 8 }]}
+          textColor={inputTextColor}
         />
         <TextInput
           label="Qty"
           value={item.qty.toString()}
           onChangeText={(val) => onChange(index, 'qty', val)}
           mode="outlined"
-          style={[styles.input, { flex: 1, marginRight: 8 }]}
+          style={[inputStyle, { flex: 1, marginRight: 8 }]}
+          textColor={inputTextColor}
           keyboardType="numeric"
+        />
+      </View>
+      <View style={styles.row}>
+        <TextInput
+          label="Wt / Piece"
+          value={item.weightPerPiece.toString()}
+          onChangeText={(val) => onChange(index, 'weightPerPiece', val)}
+          mode="outlined"
+          style={[inputStyle, { flex: 1, marginRight: 8 }]}
+          textColor={inputTextColor}
+          keyboardType="decimal-pad"
         />
         <TextInput
           label="Rate"
           value={item.rate.toString()}
           onChangeText={(val) => onChange(index, 'rate', val)}
           mode="outlined"
-          style={[styles.input, { flex: 1 }]}
+          style={[inputStyle, { flex: 1 }]}
+          textColor={inputTextColor}
           keyboardType="numeric"
         />
       </View>
@@ -58,7 +75,6 @@ const styles = StyleSheet.create({
     borderColor: '#ccc',
     borderRadius: 8,
     marginBottom: 12,
-    backgroundColor: 'rgba(0,0,0,0.02)',
   },
   header: {
     flexDirection: 'row',
@@ -69,6 +85,9 @@ const styles = StyleSheet.create({
   input: {
     marginBottom: 8,
     backgroundColor: 'white',
+  },
+  darkInput: {
+    backgroundColor: '#000000',
   },
   row: {
     flexDirection: 'row',

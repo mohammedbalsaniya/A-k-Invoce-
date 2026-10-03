@@ -1,17 +1,21 @@
 import { View, StyleSheet, ScrollView, Alert } from 'react-native';
 import { TextInput, Button, Text, useTheme, List, Card, Divider, Portal, Dialog } from 'react-native-paper';
 import { useRouter, useFocusEffect } from 'expo-router';
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import { useCustomerStore } from '../../stores/customerStore';
 import { useSettingsStore } from '../../stores/settingsStore';
 import { useInvoiceStore } from '../../stores/invoiceStore';
 import { calculateItemAmount, calculateTotals, numberToWords } from '../../services/invoiceCalculator';
 import { pdfService } from '../../services/pdfService';
 import InvoiceItemInput from '../../components/InvoiceItemInput';
+import { isValidIsoDate } from '../../services/statementCalculator';
+import { SafeAreaScrollView } from '../../components/SafeAreaContent';
 
 export default function CreateInvoice() {
   const theme = useTheme();
   const router = useRouter();
+  const taxInputStyle = [styles.taxInput, theme.dark && styles.darkTaxInput];
+  const taxInputTextColor = theme.dark ? '#ffffff' : undefined;
   const { customers, fetchCustomers } = useCustomerStore();
   const { settings, fetchSettings } = useSettingsStore();
   const { createInvoice, getNextInvoiceNo } = useInvoiceStore();
@@ -30,8 +34,14 @@ export default function CreateInvoice() {
   const [igstPercent, setIgstPercent] = useState('0');
   const [taxType, setTaxType] = useState('gst'); // 'gst' or 'igst' (CST)
 
-  const [items, setItems] = useState([{ description: '', hsn: '', qty: '', rate: '', amount: 0 }]);
-  const [totals, setTotals] = useState({ subtotal: 0, discount: 0, taxableAmount: 0, sgstAmount: 0, cgstAmount: 0, igstAmount: 0, grandTotal: 0 });
+  const [items, setItems] = useState([{ description: '', hsn: '', qty: '', weightPerPiece: '', rate: '', amount: 0 }]);
+  const totals = useMemo(() => calculateTotals(
+    items,
+    0,
+    taxType === 'gst' ? sgstPercent : 0,
+    taxType === 'gst' ? cgstPercent : 0,
+    taxType === 'igst' ? igstPercent : 0
+  ), [items, sgstPercent, cgstPercent, igstPercent, taxType]);
 
   const [loading, setLoading] = useState(false);
 
@@ -40,26 +50,15 @@ export default function CreateInvoice() {
       fetchCustomers();
       fetchSettings();
       getNextInvoiceNo().then(setInvoiceNo);
-    }, [])
+    }, [fetchCustomers, fetchSettings, getNextInvoiceNo])
   );
-
-  useEffect(() => {
-    const calculatedTotals = calculateTotals(
-      items, 
-      0, 
-      taxType === 'gst' ? sgstPercent : 0, 
-      taxType === 'gst' ? cgstPercent : 0,
-      taxType === 'igst' ? igstPercent : 0
-    );
-    setTotals(calculatedTotals);
-  }, [items, sgstPercent, cgstPercent, igstPercent, taxType]);
 
   const addItem = () => {
     if (items.length >= 6) {
       Alert.alert('Limit Reached', 'Maximum 6 items allowed per invoice.');
       return;
     }
-    setItems([...items, { description: '', hsn: '', qty: '', rate: '', amount: 0 }]);
+    setItems([...items, { description: '', hsn: '', qty: '', weightPerPiece: '', rate: '', amount: 0 }]);
   };
 
   const removeItem = (index) => {
@@ -83,8 +82,18 @@ export default function CreateInvoice() {
       return;
     }
 
-    if (!items.every(i => i.description && i.qty > 0 && i.rate > 0)) {
-      Alert.alert('Error', 'Please fill all item details properly');
+    if (!isValidIsoDate(invoiceDate)) {
+      Alert.alert('Invalid date', 'Enter the invoice date as YYYY-MM-DD.');
+      return;
+    }
+
+    if (!items.every(i =>
+      i.description.trim() &&
+      Number.isFinite(Number(i.qty)) && Number(i.qty) > 0 &&
+      Number.isFinite(Number(i.weightPerPiece)) && Number(i.weightPerPiece) > 0 &&
+      Number.isFinite(Number(i.rate)) && Number(i.rate) > 0
+    )) {
+      Alert.alert('Error', 'Enter a description and positive quantity, weight per piece, and rate for each item.');
       return;
     }
 
@@ -105,14 +114,20 @@ export default function CreateInvoice() {
         cgstPercent: taxType === 'gst' ? (parseFloat(cgstPercent) || 0) : 0,
         igstPercent: taxType === 'igst' ? (parseFloat(igstPercent) || 0) : 0,
         amountInWords,
-        items
+        items: items.map(item => ({
+          ...item,
+          qty: Number(item.qty),
+          weightPerPiece: Number(item.weightPerPiece),
+          rate: Number(item.rate),
+          amount: Number(item.amount),
+        }))
       };
 
       // 1. Generate PDF
       const pdfPath = await pdfService.generateInvoicePDF(invoiceData, settings);
 
       // 2. Save to Database
-      await createInvoice({ ...invoiceData, pdfPath }, items);
+      await createInvoice({ ...invoiceData, pdfPath }, invoiceData.items);
 
       Alert.alert('Success', 'Invoice generated and saved successfully!', [
         { text: 'OK', onPress: () => router.push('/invoices/history') }
@@ -127,7 +142,7 @@ export default function CreateInvoice() {
 
   return (
     <View style={{ flex: 1 }}>
-      <ScrollView style={[styles.container, { backgroundColor: theme.colors.background }]}>
+      <SafeAreaScrollView style={[styles.container, { backgroundColor: theme.colors.background }]}>
         <Card style={styles.card}>
           <Card.Content>
             <Text variant="titleMedium" style={styles.sectionLabel}>Customer Information</Text>
@@ -230,7 +245,8 @@ export default function CreateInvoice() {
                       keyboardType="numeric"
                       mode="outlined"
                       dense
-                      style={styles.taxInput}
+                      style={taxInputStyle}
+                      textColor={taxInputTextColor}
                     />
                   </View>
                   <Text>₹{totals.sgstAmount.toFixed(2)}</Text>
@@ -245,7 +261,8 @@ export default function CreateInvoice() {
                       keyboardType="numeric"
                       mode="outlined"
                       dense
-                      style={styles.taxInput}
+                      style={taxInputStyle}
+                      textColor={taxInputTextColor}
                     />
                   </View>
                   <Text>₹{totals.cgstAmount.toFixed(2)}</Text>
@@ -261,7 +278,8 @@ export default function CreateInvoice() {
                     keyboardType="numeric"
                     mode="outlined"
                     dense
-                    style={styles.taxInput}
+                    style={taxInputStyle}
+                    textColor={taxInputTextColor}
                   />
                 </View>
                 <Text>₹{totals.igstAmount.toFixed(2)}</Text>
@@ -287,7 +305,7 @@ export default function CreateInvoice() {
         </Button>
         
         <View style={{ height: 40 }} />
-      </ScrollView>
+      </SafeAreaScrollView>
 
       <Portal>
         <Dialog visible={showCustomerPicker} onDismiss={() => setShowCustomerPicker(false)}>
@@ -388,6 +406,9 @@ const styles = StyleSheet.create({
     width: 60,
     height: 40,
     backgroundColor: 'white',
+  },
+  darkTaxInput: {
+    backgroundColor: '#000000',
   },
   submitButton: {
     marginTop: 24,

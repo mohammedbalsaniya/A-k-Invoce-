@@ -2,6 +2,8 @@ import { PDFDocument } from 'pdf-lib';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
 import { Asset } from 'expo-asset';
+import { Platform } from 'react-native';
+import { sanitizeFilename } from './statementCalculator';
 
 const INVOICE_DIR = `${FileSystem.documentDirectory}invoices/`;
 
@@ -141,11 +143,14 @@ export const pdfService = {
 
       const outputBase64 = await pdfDoc.saveAsBase64();
 
-      const fileName = `Invoice_${
-        invoiceData.invoiceNo?.replace(/\//g, '_') || Date.now()
-      }.pdf`;
-
-      const filePath = `${INVOICE_DIR}${fileName}`;
+      const customer = sanitizeFilename(invoiceData.customerName);
+      const number = sanitizeFilename(invoiceData.invoiceNo || String(Date.now()));
+      const date = sanitizeFilename(String(invoiceData.invoiceDate || '').replace(/-/g, '_'));
+      const fileName = `${customer}_Invoice_${number}_${date}.pdf`;
+      let filePath = `${INVOICE_DIR}${fileName}`;
+      if ((await FileSystem.getInfoAsync(filePath)).exists) {
+        filePath = `${INVOICE_DIR}${customer}_Invoice_${number}_${date}_${Date.now()}.pdf`;
+      }
 
       await FileSystem.writeAsStringAsync(filePath, outputBase64, {
         encoding: FileSystem.EncodingType.Base64,
@@ -159,11 +164,29 @@ export const pdfService = {
   },
 
   sharePDF: async (filePath) => {
+    const info = await FileSystem.getInfoAsync(filePath);
+    if (!info.exists) throw new Error('This PDF is missing and could not be opened.');
     if (!(await Sharing.isAvailableAsync())) {
-      alert('Sharing is not available on this device');
-      return;
+      throw new Error('PDF sharing is not available on this device.');
     }
 
-    await Sharing.shareAsync(filePath);
+    await Sharing.shareAsync(filePath, { mimeType: 'application/pdf', UTI: 'com.adobe.pdf' });
+  },
+
+  openPDF: async filePath => {
+    const info = await FileSystem.getInfoAsync(filePath);
+    if (!info.exists) throw new Error('This PDF is missing and could not be opened.');
+    if (Platform.OS === 'android') {
+      const IntentLauncher = await import('expo-intent-launcher');
+      const contentUri = await FileSystem.getContentUriAsync(filePath);
+      await IntentLauncher.startActivityAsync('android.intent.action.VIEW', {
+        data: contentUri,
+        flags: 1,
+        type: 'application/pdf',
+      });
+      return;
+    }
+    if (!(await Sharing.isAvailableAsync())) throw new Error('PDF opening is not available on this device.');
+    await Sharing.shareAsync(filePath, { mimeType: 'application/pdf', UTI: 'com.adobe.pdf' });
   },
 };
