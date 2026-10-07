@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Alert, ScrollView, StyleSheet, View } from 'react-native';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
-import { Button, Dialog, List, Portal, Text, TextInput, useTheme } from 'react-native-paper';
+import { Button, Checkbox, Dialog, List, Portal, Text, TextInput, useTheme } from 'react-native-paper';
 import { customerRepository } from '../../repositories/customerRepository';
 import { rawMaterialRepository } from '../../repositories/rawMaterialRepository';
 import { calculateRawTotal, formatWeight, isValidIsoDate } from '../../services/statementCalculator';
@@ -18,6 +18,7 @@ export default function RawMaterialForm() {
   const [materialName, setMaterialName] = useState('');
   const [bagWeight, setBagWeight] = useState('');
   const [bags, setBags] = useState('');
+  const [isReturn, setIsReturn] = useState(false);
   const [loading, setLoading] = useState(false);
 
   const totalWeight = useMemo(
@@ -43,6 +44,7 @@ export default function RawMaterialForm() {
       setMaterialName(entry.material_name);
       setBagWeight(String(entry.bag_weight));
       setBags(String(entry.number_of_bags));
+      setIsReturn(Number(entry.is_return) === 1);
       setSelectedCustomer({ id: entry.customer_id, name: entry.customer_name });
     }).catch(error => Alert.alert('Could not load entry', error.message));
   }, [id, router]);
@@ -76,6 +78,7 @@ export default function RawMaterialForm() {
         bag_weight: weight,
         number_of_bags: count,
         total_weight: calculateRawTotal(weight, count),
+        is_return: isReturn ? 1 : 0,
       });
       router.back();
     } catch (error) {
@@ -97,6 +100,13 @@ export default function RawMaterialForm() {
         <TextInput label="Bag Weight (KG)" value={bagWeight} onChangeText={setBagWeight} keyboardType="decimal-pad" mode="outlined" style={[styles.input, styles.flex]} />
         <TextInput label="Number of Bags" value={bags} onChangeText={setBags} keyboardType="number-pad" mode="outlined" style={[styles.input, styles.flex]} />
       </View>
+      <Checkbox.Item
+        label="RETURN"
+        status={isReturn ? 'checked' : 'unchecked'}
+        onPress={() => setIsReturn(value => !value)}
+        position="leading"
+        style={styles.returnCheckbox}
+      />
       <Text variant="titleMedium" style={styles.total}>Total Weight: {formatWeight(totalWeight)} KG</Text>
       <Button mode="contained" onPress={save} loading={loading} disabled={loading} style={styles.submit}>
         {id ? 'Save Changes' : 'Save Entry'}
@@ -129,6 +139,7 @@ const styles = StyleSheet.create({
   input: { marginBottom: 12 },
   row: { flexDirection: 'row', gap: 8 },
   flex: { flex: 1 },
+  returnCheckbox: { paddingHorizontal: 0 },
   total: { marginVertical: 8, textAlign: 'right' },
   submit: { marginVertical: 16 },
 });

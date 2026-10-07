@@ -1,6 +1,12 @@
 import { PDFDocument, StandardFonts, rgb } from 'pdf-lib';
 import * as FileSystem from 'expo-file-system/legacy';
-import { formatIsoDate, formatWeight, sanitizeFilename } from './statementCalculator';
+import {
+  calculateRawMaterialNetWeight,
+  formatIsoDate,
+  formatWeight,
+  getRawMaterialSignedWeight,
+  sanitizeFilename,
+} from './statementCalculator';
 
 const DIRECTORY = `${FileSystem.documentDirectory}statements/`;
 const PAGE_WIDTH = 595.28;
@@ -10,6 +16,7 @@ const RIGHT = PAGE_WIDTH - LEFT;
 const COLOR = rgb(0.12, 0.18, 0.27);
 const MUTED = rgb(0.38, 0.43, 0.5);
 const LINE = rgb(0.81, 0.84, 0.88);
+const RETURN_RED = rgb(0.8, 0, 0);
 
 const money = value => `INR ${Number(value || 0).toFixed(2)}`;
 const monthName = month => new Date(2000, month - 1, 1).toLocaleString('en', { month: 'long' });
@@ -73,7 +80,23 @@ export const statementPdfService = {
         }
         const values = render(row);
         values.forEach((value, index) => {
-          text(truncate(value, font, 8.5, widths[index] - 5), xPositions[index], y, 8.5);
+          if (Array.isArray(value)) {
+            let x = xPositions[index];
+            value.forEach((segment, segmentIndex) => {
+              const selectedFont = segment.font || font;
+              const remainingSegmentWidth = value.slice(segmentIndex + 1).reduce((total, remaining) =>
+                total + (remaining.font || font).widthOfTextAtSize(remaining.text, 8.5), 0);
+              const maxWidth = Math.max(
+                0,
+                widths[index] - (x - xPositions[index]) - remainingSegmentWidth - 5
+              );
+              const rendered = truncate(segment.text, selectedFont, 8.5, maxWidth);
+              text(rendered, x, y, 8.5, selectedFont, segment.color || COLOR);
+              x += selectedFont.widthOfTextAtSize(rendered, 8.5);
+            });
+          } else {
+            text(truncate(value, font, 8.5, widths[index] - 5), xPositions[index], y, 8.5);
+          }
         });
         y -= 14;
         line(y, LEFT, tableRight);
@@ -102,9 +125,17 @@ export const statementPdfService = {
       ['DATE', 'RAW MATERIAL', 'BAG W.T', 'NO. OF BAG', 'TOTAL W.T (KG)'],
       [70, 210, 72, 76, 91],
       statement.rawMaterials,
-      row => [formatIsoDate(row.date), row.material_name, formatWeight(row.bag_weight), row.number_of_bags, formatWeight(row.total_weight)],
+      row => [
+        formatIsoDate(row.date),
+        Number(row.is_return) === 1
+          ? [{ text: `${row.material_name} - ` }, { text: 'RETURN', font: bold, color: RETURN_RED }]
+          : row.material_name,
+        formatWeight(row.bag_weight),
+        row.number_of_bags,
+        formatWeight(getRawMaterialSignedWeight(row)),
+      ],
       'TOTAL RAW MATERIAL (KG)',
-      formatWeight(statement.rawMaterials.reduce((sum, row) => sum + Number(row.total_weight || 0), 0))
+      formatWeight(calculateRawMaterialNetWeight(statement.rawMaterials))
     );
 
     section('RAW MATERIAL BALANCE (KG)');

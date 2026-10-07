@@ -1,7 +1,7 @@
 import * as SQLite from 'expo-sqlite';
 
 const DATABASE_NAME = 'invoice_app.db';
-const CURRENT_SCHEMA_VERSION = 2;
+const CURRENT_SCHEMA_VERSION = 3;
 let dbInstance = null;
 
 const hasColumn = async (db, table, column) => {
@@ -118,6 +118,7 @@ export const initDatabase = async () => {
             bag_weight REAL NOT NULL CHECK (bag_weight >= 0),
             number_of_bags REAL NOT NULL CHECK (number_of_bags >= 0),
             total_weight REAL NOT NULL CHECK (total_weight >= 0),
+            is_return INTEGER NOT NULL DEFAULT 0 CHECK (is_return IN (0, 1)),
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
             updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (customer_id) REFERENCES customers (id) ON DELETE CASCADE
@@ -152,6 +153,15 @@ export const initDatabase = async () => {
           CREATE INDEX IF NOT EXISTS idx_statements_customer_period ON statements(customer_id, year, month);
         `);
         await db.runAsync('UPDATE version SET current_version = 2 WHERE id = 1');
+      }
+      const latest = await db.getFirstAsync('SELECT current_version FROM version WHERE id = 1');
+      if (latest.current_version < 3) {
+        if (!(await hasColumn(db, 'raw_material_entries', 'is_return'))) {
+          await db.execAsync(
+            'ALTER TABLE raw_material_entries ADD COLUMN is_return INTEGER NOT NULL DEFAULT 0 CHECK (is_return IN (0, 1))'
+          );
+        }
+        await db.runAsync('UPDATE version SET current_version = 3 WHERE id = 1');
       }
     });
   } catch (error) {

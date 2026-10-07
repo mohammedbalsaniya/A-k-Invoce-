@@ -13,7 +13,7 @@ export const statementRepository = {
     const db = await getDbConnection();
     const { from, next } = monthRange(year, month);
     const rawMaterials = await db.getAllAsync(
-      `SELECT id, date, material_name, bag_weight, number_of_bags, total_weight
+      `SELECT id, date, material_name, bag_weight, number_of_bags, total_weight, is_return
        FROM raw_material_entries
        WHERE customer_id = ? AND date >= ? AND date < ?
        ORDER BY date, id`,

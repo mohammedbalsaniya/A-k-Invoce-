@@ -5,7 +5,14 @@ import { Button, Card, Dialog, List, Portal, Text, TextInput, useTheme } from 'r
 import { customerRepository } from '../../repositories/customerRepository';
 import { settingsRepository } from '../../repositories/settingsRepository';
 import { statementRepository } from '../../repositories/statementRepository';
-import { calculateMaterialBalance, calculateProductionWeight, formatWeight } from '../../services/statementCalculator';
+import {
+  calculateMaterialBalance,
+  calculateProductionWeight,
+  calculateRawMaterialNetWeight,
+  formatIsoDate,
+  formatWeight,
+  getRawMaterialSignedWeight,
+} from '../../services/statementCalculator';
 import { statementPdfService } from '../../services/statementPdfService';
 import { SafeAreaScrollView } from '../../components/SafeAreaContent';
 
@@ -30,7 +37,7 @@ export default function CreateStatement() {
   const numericYear = Number(year);
   const balance = useMemo(() => {
     const used = source?.production.reduce((sum, row) => sum + row.totalWeight, 0) || 0;
-    const added = source?.rawMaterials.reduce((sum, row) => sum + Number(row.total_weight), 0) || 0;
+    const added = calculateRawMaterialNetWeight(source?.rawMaterials);
     return calculateMaterialBalance(Number(oldWeight) || 0, added, used);
   }, [oldWeight, source]);
 
@@ -175,6 +182,20 @@ export default function CreateStatement() {
               <View style={styles.balanceRow}><Text>USED</Text><Text>{formatWeight(balance.usedWeight)} KG</Text></View>
               <View style={styles.balanceRow}><Text>1%</Text><Text>{formatWeight(balance.rejectionWeight)} KG</Text></View>
               <View style={styles.balanceRow}><Text>BALANCE</Text><Text>{formatWeight(balance.balanceWeight)} KG</Text></View>
+              {source.rawMaterials.length > 0 && (
+                <View style={styles.rawMaterialEntries}>
+                  <Text variant="titleSmall" style={styles.section}>Raw Material Entries</Text>
+                  {source.rawMaterials.map((entry, index) => (
+                    <View key={`${entry.id}-${index}`} style={styles.rawMaterialRow}>
+                      <Text style={styles.rawMaterialName}>
+                        {formatIsoDate(entry.date)} · {entry.material_name}
+                        {Number(entry.is_return) === 1 && <Text style={{ color: theme.colors.error }}> · RETURN</Text>}
+                      </Text>
+                      <Text>{formatWeight(getRawMaterialSignedWeight(entry))} KG</Text>
+                    </View>
+                  ))}
+                </View>
+              )}
             </Card.Content>
           </Card>
 
@@ -221,6 +242,9 @@ const styles = StyleSheet.create({
   row: { flexDirection: 'row', gap: 8 },
   flex: { flex: 1 },
   balanceRow: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 4 },
+  rawMaterialEntries: { marginTop: 12 },
+  rawMaterialRow: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 4 },
+  rawMaterialName: { flex: 1, marginRight: 12 },
   hint: { marginBottom: 12 },
   generate: { marginVertical: 4, paddingVertical: 6 },
 });

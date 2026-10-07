@@ -12,7 +12,7 @@ const BACKUP_TABLES = {
   customers: ['id', 'name', 'address', 'gstNumber', 'phone', 'created_at', 'updated_at'],
   invoices: ['id', 'invoiceNo', 'invoiceDate', 'carrier', 'station', 'customerId', 'subtotal', 'discount', 'taxableAmount', 'sgstPercent', 'sgstAmount', 'cgstPercent', 'cgstAmount', 'igstPercent', 'igstAmount', 'grandTotal', 'amountInWords', 'include_in_statement', 'created_at', 'updated_at'],
   invoice_items: ['id', 'invoiceId', 'description', 'hsn', 'qty', 'weight_per_piece', 'rate', 'amount', 'created_at', 'updated_at'],
-  raw_material_entries: ['id', 'customer_id', 'date', 'material_name', 'bag_weight', 'number_of_bags', 'total_weight', 'created_at', 'updated_at'],
+  raw_material_entries: ['id', 'customer_id', 'date', 'material_name', 'bag_weight', 'number_of_bags', 'total_weight', 'is_return', 'created_at', 'updated_at'],
   statements: ['id', 'customer_id', 'customer_name', 'month', 'year', 'old_weight', 'new_weight', 'total_weight', 'used_weight', 'rejection_weight', 'balance_weight', 'previous_amount', 'current_amount', 'gst_amount', 'tds_amount', 'total_amount', 'snapshot_json', 'snapshot_version', 'status', 'created_at', 'finalized_at'],
   app_metadata: ['key', 'value'],
 };
@@ -45,7 +45,8 @@ const validatePayload = payload => {
         asNumber(row.qty) && asNumber(row.weight_per_piece) && asNumber(row.rate) && asNumber(row.amount)) ||
       !raw.every(row => asNumber(row.id) && asNumber(row.customer_id) && asString(row.date) && asString(row.material_name) &&
         asNumber(row.bag_weight) && row.bag_weight >= 0 && asNumber(row.number_of_bags) && row.number_of_bags >= 0 &&
-        asNumber(row.total_weight) && row.total_weight >= 0) ||
+        asNumber(row.total_weight) && row.total_weight >= 0 &&
+        (row.is_return === undefined || [0, 1].includes(row.is_return))) ||
       !statements.every(row => asNumber(row.id) && asString(row.customer_name) && asString(row.snapshot_json) &&
         asNumber(row.month) && row.month >= 1 && row.month <= 12 && asNumber(row.year) &&
         ['old_weight', 'new_weight', 'total_weight', 'used_weight', 'rejection_weight', 'balance_weight',
@@ -75,7 +76,8 @@ const validatePayload = payload => {
         !['previousAmount', 'currentAmount', 'gstAmount', 'tdsAmount', 'totalAmount']
           .every(field => asNumber(snapshot.amounts[field])) ||
         !snapshot.rawMaterials.every(entry => asString(entry.date) && asString(entry.material_name) &&
-          asNumber(entry.bag_weight) && asNumber(entry.number_of_bags) && asNumber(entry.total_weight)) ||
+          asNumber(entry.bag_weight) && asNumber(entry.number_of_bags) && asNumber(entry.total_weight) &&
+          (entry.is_return === undefined || [0, 1].includes(entry.is_return))) ||
         !snapshot.production.every(entry => asString(entry.description) && asString(entry.invoiceDate) &&
           asNumber(entry.qty) && asNumber(entry.weightPerPiece) && asNumber(entry.totalWeight) &&
           asNumber(entry.rate) && asNumber(entry.amount))) {
@@ -91,6 +93,10 @@ const removePdfUris = data => {
   cleaned.statements = cleaned.statements.map(row => {
     const snapshot = JSON.parse(row.snapshot_json);
     snapshot.pdfUri = null;
+    snapshot.rawMaterials = snapshot.rawMaterials.map(entry => ({
+      ...entry,
+      is_return: entry.is_return ?? 0,
+    }));
     return { ...row, pdf_uri: null, snapshot_json: JSON.stringify(snapshot) };
   });
   return cleaned;
@@ -175,7 +181,13 @@ export const backupService = {
   restore: async payload => {
     validatePayload(payload);
     const db = await getDbConnection();
-    const data = removePdfUris(payload.data);
+    const data = removePdfUris({
+      ...payload.data,
+      raw_material_entries: payload.data.raw_material_entries.map(row => ({
+        ...row,
+        is_return: row.is_return ?? 0,
+      })),
+    });
     await db.withTransactionAsync(async () => {
       await db.execAsync(`
         DELETE FROM statements;
