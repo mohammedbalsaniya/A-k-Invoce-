@@ -11,7 +11,6 @@ import {
   calculateRawMaterialNetWeight,
   formatIsoDate,
   formatWeight,
-  getRawMaterialSignedWeight,
 } from '../../services/statementCalculator';
 import { statementPdfService } from '../../services/statementPdfService';
 import { SafeAreaScrollView } from '../../components/SafeAreaContent';
@@ -189,9 +188,8 @@ export default function CreateStatement() {
                     <View key={`${entry.id}-${index}`} style={styles.rawMaterialRow}>
                       <Text style={styles.rawMaterialName}>
                         {formatIsoDate(entry.date)} · {entry.material_name}
-                        {Number(entry.is_return) === 1 && <Text style={{ color: theme.colors.error }}> · RETURN</Text>}
                       </Text>
-                      <Text>{formatWeight(getRawMaterialSignedWeight(entry))} KG</Text>
+                      <Text>{formatWeight(entry.total_weight)} KG</Text>
                     </View>
                   ))}
                 </View>

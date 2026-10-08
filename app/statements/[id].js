@@ -5,7 +5,7 @@ import { ActivityIndicator, Button, Card, Divider, Text, useTheme } from 'react-
 import { statementRepository } from '../../repositories/statementRepository';
 import { pdfOpenService } from '../../services/pdfOpenService';
 import { pdfService } from '../../services/pdfService';
-import { formatIsoDate, formatWeight, getRawMaterialSignedWeight } from '../../services/statementCalculator';
+import { formatIsoDate, formatWeight } from '../../services/statementCalculator';
 import { SafeAreaScrollView } from '../../components/SafeAreaContent';
 
 const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
@@ -61,9 +61,8 @@ export default function StatementDetails() {
             <View key={`${row.id}-${index}`} style={styles.entry}>
               <Text style={styles.flex}>
                 {formatIsoDate(row.date)} · {row.material_name}
-                {Number(row.is_return) === 1 && <Text style={{ color: theme.colors.error }}> · RETURN</Text>}
               </Text>
-              <Text>{formatWeight(getRawMaterialSignedWeight(row))} KG</Text>
+              <Text>{formatWeight(row.total_weight)} KG</Text>
             </View>
           ))}
           {!snapshot.rawMaterials.length && <Text>No raw-material rows</Text>}

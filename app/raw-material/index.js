@@ -3,7 +3,7 @@ import { Alert, StyleSheet, View } from 'react-native';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { Button, Card, FAB, IconButton, Searchbar, Text, useTheme } from 'react-native-paper';
 import { rawMaterialRepository } from '../../repositories/rawMaterialRepository';
-import { formatIsoDate, formatWeight, getRawMaterialSignedWeight } from '../../services/statementCalculator';
+import { formatIsoDate, formatWeight } from '../../services/statementCalculator';
 import { SafeAreaFlatList, useBottomSafeArea } from '../../components/SafeAreaContent';
 
 const PAGE_SIZE = 100;
@@ -66,12 +66,9 @@ export default function RawMaterialHistory() {
     <Card style={styles.card}>
       <Card.Content style={styles.content}>
         <View style={styles.details}>
-          <Text variant="titleMedium">
-            {item.material_name}
-            {Number(item.is_return) === 1 && <Text style={{ color: theme.colors.error }}> · RETURN</Text>}
-          </Text>
+          <Text variant="titleMedium">{item.material_name}</Text>
           <Text>{item.customer_name} · {formatIsoDate(item.date)}</Text>
-          <Text variant="bodySmall">{formatWeight(item.bag_weight)} KG × {item.number_of_bags} bags = {formatWeight(getRawMaterialSignedWeight(item))} KG</Text>
+          <Text variant="bodySmall">{formatWeight(item.bag_weight)} KG × {item.number_of_bags} bags = {formatWeight(item.total_weight)} KG</Text>
         </View>
         <View>
           <IconButton icon="pencil" onPress={() => router.push({ pathname: '/raw-material/create', params: { id: item.id } })} />

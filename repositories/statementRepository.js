@@ -1,4 +1,5 @@
 import { getDbConnection } from '../database/database';
+import { normalizeLegacyRawMaterialEntry } from '../utils/legacyRawMaterial';
 
 const monthRange = (year, month) => {
   const from = `${year}-${String(month).padStart(2, '0')}-01`;
@@ -13,7 +14,7 @@ export const statementRepository = {
     const db = await getDbConnection();
     const { from, next } = monthRange(year, month);
     const rawMaterials = await db.getAllAsync(
-      `SELECT id, date, material_name, bag_weight, number_of_bags, total_weight, is_return
+      `SELECT id, date, material_name, bag_weight, number_of_bags, total_weight
        FROM raw_material_entries
        WHERE customer_id = ? AND date >= ? AND date < ?
        ORDER BY date, id`,
@@ -102,7 +103,10 @@ export const statementRepository = {
   getById: async id => {
     const db = await getDbConnection();
     const statement = await db.getFirstAsync('SELECT * FROM statements WHERE id = ?', [id]);
-    if (statement) statement.snapshot = JSON.parse(statement.snapshot_json);
+    if (statement) {
+      statement.snapshot = JSON.parse(statement.snapshot_json);
+      statement.snapshot.rawMaterials = statement.snapshot.rawMaterials.map(normalizeLegacyRawMaterialEntry);
+    }
     return statement;
   },
 
@@ -112,6 +116,7 @@ export const statementRepository = {
     if (!row) throw new Error('Statement not found');
     const snapshot = JSON.parse(row.snapshot_json);
     snapshot.pdfUri = pdfUri;
+    snapshot.rawMaterials = snapshot.rawMaterials.map(normalizeLegacyRawMaterialEntry);
     return db.runAsync(
       'UPDATE statements SET pdf_uri = ?, snapshot_json = ? WHERE id = ?',
       [pdfUri, JSON.stringify(snapshot), id]

@@ -2,6 +2,7 @@ import * as DocumentPicker from 'expo-document-picker';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
 import { getDbConnection } from '../database/database';
+import { normalizeLegacyRawMaterialEntry } from '../utils/legacyRawMaterial';
 
 const APP_ID = 'AK_PLASTIC';
 const BACKUP_VERSION = 1;
@@ -12,7 +13,7 @@ const BACKUP_TABLES = {
   customers: ['id', 'name', 'address', 'gstNumber', 'phone', 'created_at', 'updated_at'],
   invoices: ['id', 'invoiceNo', 'invoiceDate', 'carrier', 'station', 'customerId', 'subtotal', 'discount', 'taxableAmount', 'sgstPercent', 'sgstAmount', 'cgstPercent', 'cgstAmount', 'igstPercent', 'igstAmount', 'grandTotal', 'amountInWords', 'include_in_statement', 'created_at', 'updated_at'],
   invoice_items: ['id', 'invoiceId', 'description', 'hsn', 'qty', 'weight_per_piece', 'rate', 'amount', 'created_at', 'updated_at'],
-  raw_material_entries: ['id', 'customer_id', 'date', 'material_name', 'bag_weight', 'number_of_bags', 'total_weight', 'is_return', 'created_at', 'updated_at'],
+  raw_material_entries: ['id', 'customer_id', 'date', 'material_name', 'bag_weight', 'number_of_bags', 'total_weight', 'created_at', 'updated_at'],
   statements: ['id', 'customer_id', 'customer_name', 'month', 'year', 'old_weight', 'new_weight', 'total_weight', 'used_weight', 'rejection_weight', 'balance_weight', 'previous_amount', 'current_amount', 'gst_amount', 'tds_amount', 'total_amount', 'snapshot_json', 'snapshot_version', 'status', 'created_at', 'finalized_at'],
   app_metadata: ['key', 'value'],
 };
@@ -44,8 +45,7 @@ const validatePayload = payload => {
       !items.every(row => asNumber(row.id) && asNumber(row.invoiceId) && asString(row.description) &&
         asNumber(row.qty) && asNumber(row.weight_per_piece) && asNumber(row.rate) && asNumber(row.amount)) ||
       !raw.every(row => asNumber(row.id) && asNumber(row.customer_id) && asString(row.date) && asString(row.material_name) &&
-        asNumber(row.bag_weight) && row.bag_weight >= 0 && asNumber(row.number_of_bags) && row.number_of_bags >= 0 &&
-        asNumber(row.total_weight) && row.total_weight >= 0 &&
+        asNumber(row.bag_weight) && asNumber(row.number_of_bags) && asNumber(row.total_weight) &&
         (row.is_return === undefined || [0, 1].includes(row.is_return))) ||
       !statements.every(row => asNumber(row.id) && asString(row.customer_name) && asString(row.snapshot_json) &&
         asNumber(row.month) && row.month >= 1 && row.month <= 12 && asNumber(row.year) &&
@@ -93,10 +93,7 @@ const removePdfUris = data => {
   cleaned.statements = cleaned.statements.map(row => {
     const snapshot = JSON.parse(row.snapshot_json);
     snapshot.pdfUri = null;
-    snapshot.rawMaterials = snapshot.rawMaterials.map(entry => ({
-      ...entry,
-      is_return: entry.is_return ?? 0,
-    }));
+    snapshot.rawMaterials = snapshot.rawMaterials.map(normalizeLegacyRawMaterialEntry);
     return { ...row, pdf_uri: null, snapshot_json: JSON.stringify(snapshot) };
   });
   return cleaned;
@@ -183,10 +180,7 @@ export const backupService = {
     const db = await getDbConnection();
     const data = removePdfUris({
       ...payload.data,
-      raw_material_entries: payload.data.raw_material_entries.map(row => ({
-        ...row,
-        is_return: row.is_return ?? 0,
-      })),
+      raw_material_entries: payload.data.raw_material_entries.map(normalizeLegacyRawMaterialEntry),
     });
     await db.withTransactionAsync(async () => {
       await db.execAsync(`

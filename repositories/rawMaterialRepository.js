@@ -54,21 +54,20 @@ export const rawMaterialRepository = {
       entry.bag_weight,
       entry.number_of_bags,
       entry.total_weight,
-      entry.is_return ? 1 : 0,
     ];
     if (entry.id) {
       return db.runAsync(
         `UPDATE raw_material_entries
          SET customer_id = ?, date = ?, material_name = ?, bag_weight = ?,
-             number_of_bags = ?, total_weight = ?, is_return = ?, updated_at = CURRENT_TIMESTAMP
+             number_of_bags = ?, total_weight = ?, updated_at = CURRENT_TIMESTAMP
          WHERE id = ?`,
         [...values, entry.id]
       );
     }
     return db.runAsync(
       `INSERT INTO raw_material_entries
-       (customer_id, date, material_name, bag_weight, number_of_bags, total_weight, is_return)
-       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+       (customer_id, date, material_name, bag_weight, number_of_bags, total_weight)
+       VALUES (?, ?, ?, ?, ?, ?)`,
       values
     );
   },

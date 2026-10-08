@@ -6,11 +6,8 @@ export const calculateRawTotal = (bagWeight, bags) =>
 export const calculateProductionWeight = (quantity, weightPerPiece) =>
   roundWeight(Number(quantity) * Number(weightPerPiece));
 
-export const getRawMaterialSignedWeight = entry =>
-  roundWeight(Number(entry.total_weight || 0) * (Number(entry.is_return) === 1 ? -1 : 1));
-
 export const calculateRawMaterialNetWeight = entries =>
-  roundWeight((entries || []).reduce((sum, entry) => sum + getRawMaterialSignedWeight(entry), 0));
+  roundWeight((entries || []).reduce((sum, entry) => sum + Number(entry.total_weight || 0), 0));
 
 export const calculateMaterialBalance = (oldWeight, newWeight, usedWeight) => {
   const old = roundWeight(Number(oldWeight));

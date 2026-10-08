@@ -1,7 +1,8 @@
 import * as SQLite from 'expo-sqlite';
+import { normalizeLegacyRawMaterialEntry } from '../utils/legacyRawMaterial';
 
 const DATABASE_NAME = 'invoice_app.db';
-const CURRENT_SCHEMA_VERSION = 3;
+const CURRENT_SCHEMA_VERSION = 4;
 let dbInstance = null;
 
 const hasColumn = async (db, table, column) => {
@@ -115,10 +116,9 @@ export const initDatabase = async () => {
             customer_id INTEGER NOT NULL,
             date TEXT NOT NULL,
             material_name TEXT NOT NULL,
-            bag_weight REAL NOT NULL CHECK (bag_weight >= 0),
-            number_of_bags REAL NOT NULL CHECK (number_of_bags >= 0),
-            total_weight REAL NOT NULL CHECK (total_weight >= 0),
-            is_return INTEGER NOT NULL DEFAULT 0 CHECK (is_return IN (0, 1)),
+            bag_weight REAL NOT NULL,
+            number_of_bags REAL NOT NULL,
+            total_weight REAL NOT NULL,
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
             updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (customer_id) REFERENCES customers (id) ON DELETE CASCADE
@@ -156,12 +156,64 @@ export const initDatabase = async () => {
       }
       const latest = await db.getFirstAsync('SELECT current_version FROM version WHERE id = 1');
       if (latest.current_version < 3) {
-        if (!(await hasColumn(db, 'raw_material_entries', 'is_return'))) {
-          await db.execAsync(
-            'ALTER TABLE raw_material_entries ADD COLUMN is_return INTEGER NOT NULL DEFAULT 0 CHECK (is_return IN (0, 1))'
-          );
-        }
         await db.runAsync('UPDATE version SET current_version = 3 WHERE id = 1');
+      }
+      const signedWeightVersion = await db.getFirstAsync('SELECT current_version FROM version WHERE id = 1');
+      if (signedWeightVersion.current_version < 4) {
+        const hasReturnFlag = await hasColumn(db, 'raw_material_entries', 'is_return');
+        await db.execAsync(`
+          CREATE TABLE raw_material_entries_signed (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            customer_id INTEGER NOT NULL,
+            date TEXT NOT NULL,
+            material_name TEXT NOT NULL,
+            bag_weight REAL NOT NULL,
+            number_of_bags REAL NOT NULL,
+            total_weight REAL NOT NULL,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (customer_id) REFERENCES customers (id) ON DELETE CASCADE
+          );
+        `);
+        await db.execAsync(hasReturnFlag
+          ? `INSERT INTO raw_material_entries_signed
+               (id, customer_id, date, material_name, bag_weight, number_of_bags, total_weight, created_at, updated_at)
+             SELECT id, customer_id, date, material_name, bag_weight,
+                    CASE WHEN is_return = 1 THEN -ABS(number_of_bags) ELSE number_of_bags END,
+                    CASE WHEN is_return = 1 THEN -ABS(total_weight) ELSE total_weight END,
+                    created_at, updated_at
+             FROM raw_material_entries;`
+          : `INSERT INTO raw_material_entries_signed
+               (id, customer_id, date, material_name, bag_weight, number_of_bags, total_weight, created_at, updated_at)
+             SELECT id, customer_id, date, material_name, bag_weight, number_of_bags, total_weight, created_at, updated_at
+             FROM raw_material_entries;`);
+        await db.execAsync(`
+          DROP TABLE raw_material_entries;
+          ALTER TABLE raw_material_entries_signed RENAME TO raw_material_entries;
+          CREATE INDEX idx_raw_material_customer_date ON raw_material_entries(customer_id, date);
+        `);
+
+        const statements = await db.getAllAsync('SELECT id, snapshot_json FROM statements');
+        for (const statement of statements) {
+          const snapshot = JSON.parse(statement.snapshot_json);
+          if (Array.isArray(snapshot.rawMaterials)) {
+            const hadLegacyReturn = snapshot.rawMaterials.some(entry => entry.is_return !== undefined);
+            snapshot.rawMaterials = snapshot.rawMaterials.map(entry => {
+              return normalizeLegacyRawMaterialEntry(entry);
+            });
+            if (hadLegacyReturn) snapshot.pdfUri = null;
+            await db.runAsync(
+              `UPDATE statements SET snapshot_json = ?, pdf_uri = CASE WHEN ? THEN NULL ELSE pdf_uri END
+               WHERE id = ?`,
+              [
+                JSON.stringify(snapshot),
+                hadLegacyReturn ? 1 : 0,
+                statement.id,
+              ]
+            );
+          }
+        }
+        await db.runAsync('UPDATE version SET current_version = 4 WHERE id = 1');
       }
     });
   } catch (error) {
