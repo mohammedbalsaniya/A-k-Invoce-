@@ -1,5 +1,6 @@
 import { getDbConnection } from '../database/database';
 import { normalizeLegacyRawMaterialEntry } from '../utils/legacyRawMaterial';
+import { normalizeRawMaterialEntry } from '../services/statementCalculator';
 
 const monthRange = (year, month) => {
   const from = `${year}-${String(month).padStart(2, '0')}-01`;
@@ -31,11 +32,15 @@ export const statementRepository = {
        ORDER BY i.invoiceDate, i.id, ii.id`,
       [customerId, from, next]
     );
-    return { rawMaterials, production };
+    return { rawMaterials: rawMaterials.map(normalizeRawMaterialEntry), production };
   },
 
   create: async statement => {
     const db = await getDbConnection();
+    const snapshot = {
+      ...statement,
+      rawMaterials: statement.rawMaterials.map(normalizeRawMaterialEntry),
+    };
     const result = await db.runAsync(
       `INSERT INTO statements (
         customer_id, customer_name, month, year, old_weight, new_weight,
@@ -48,18 +53,18 @@ export const statementRepository = {
         statement.customerName,
         statement.month,
         statement.year,
-        statement.balance.oldWeight,
-        statement.balance.newWeight,
-        statement.balance.totalWeight,
-        statement.balance.usedWeight,
-        statement.balance.rejectionWeight,
-        statement.balance.balanceWeight,
-        statement.amounts.previousAmount,
-        statement.amounts.currentAmount,
-        statement.amounts.gstAmount,
-        statement.amounts.tdsAmount,
-        statement.amounts.totalAmount,
-        JSON.stringify(statement),
+        snapshot.balance.oldWeight,
+        snapshot.balance.newWeight,
+        snapshot.balance.totalWeight,
+        snapshot.balance.usedWeight,
+        snapshot.balance.rejectionWeight,
+        snapshot.balance.balanceWeight,
+        snapshot.amounts.previousAmount,
+        snapshot.amounts.currentAmount,
+        snapshot.amounts.gstAmount,
+        snapshot.amounts.tdsAmount,
+        snapshot.amounts.totalAmount,
+        JSON.stringify(snapshot),
         1,
         statement.pdfUri,
         statement.finalizedAt,

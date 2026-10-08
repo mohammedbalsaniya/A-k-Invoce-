@@ -1,4 +1,5 @@
 import { getDbConnection } from '../database/database';
+import { normalizeRawMaterialEntry } from '../services/statementCalculator';
 
 export const rawMaterialRepository = {
   getAll: async ({ customerId, fromDate, toDate, query = '', limit = 100, offset = 0 } = {}) => {
@@ -23,7 +24,7 @@ export const rawMaterialRepository = {
       params.push(term, term, term);
     }
     const where = filters.length ? `WHERE ${filters.join(' AND ')}` : '';
-    return db.getAllAsync(
+    const entries = await db.getAllAsync(
       `SELECT r.*, c.name AS customer_name
        FROM raw_material_entries r
        JOIN customers c ON c.id = r.customer_id
@@ -32,36 +33,39 @@ export const rawMaterialRepository = {
        LIMIT ? OFFSET ?`,
       [...params, limit, offset]
     );
+    return entries.map(normalizeRawMaterialEntry);
   },
 
   getById: async id => {
     const db = await getDbConnection();
-    return db.getFirstAsync(
+    const entry = await db.getFirstAsync(
       `SELECT r.*, c.name AS customer_name
        FROM raw_material_entries r
        JOIN customers c ON c.id = r.customer_id
        WHERE r.id = ?`,
       [id]
     );
+    return entry ? normalizeRawMaterialEntry(entry) : null;
   },
 
   save: async entry => {
     const db = await getDbConnection();
+    const normalizedEntry = normalizeRawMaterialEntry(entry);
     const values = [
-      entry.customer_id,
-      entry.date,
-      entry.material_name.trim(),
-      entry.bag_weight,
-      entry.number_of_bags,
-      entry.total_weight,
+      normalizedEntry.customer_id,
+      normalizedEntry.date,
+      normalizedEntry.material_name.trim(),
+      normalizedEntry.bag_weight,
+      normalizedEntry.number_of_bags,
+      normalizedEntry.total_weight,
     ];
-    if (entry.id) {
+    if (normalizedEntry.id) {
       return db.runAsync(
         `UPDATE raw_material_entries
          SET customer_id = ?, date = ?, material_name = ?, bag_weight = ?,
              number_of_bags = ?, total_weight = ?, updated_at = CURRENT_TIMESTAMP
          WHERE id = ?`,
-        [...values, entry.id]
+        [...values, normalizedEntry.id]
       );
     }
     return db.runAsync(

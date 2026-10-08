@@ -3,11 +3,21 @@ const roundWeight = value => Math.round((Number(value) + Number.EPSILON) * 1000)
 export const calculateRawTotal = (bagWeight, bags) =>
   roundWeight(Number(bagWeight) * Number(bags));
 
+export const normalizeRawMaterialEntry = entry => ({
+  ...entry,
+  total_weight: calculateRawTotal(entry.bag_weight, entry.number_of_bags),
+});
+
+export const isNegativeRawMaterialEntry = entry => {
+  const normalized = normalizeRawMaterialEntry(entry);
+  return Number(normalized.number_of_bags) < 0 || normalized.total_weight < 0;
+};
+
 export const calculateProductionWeight = (quantity, weightPerPiece) =>
   roundWeight(Number(quantity) * Number(weightPerPiece));
 
 export const calculateRawMaterialNetWeight = entries =>
-  roundWeight((entries || []).reduce((sum, entry) => sum + Number(entry.total_weight || 0), 0));
+  roundWeight((entries || []).reduce((sum, entry) => sum + normalizeRawMaterialEntry(entry).total_weight, 0));
 
 export const calculateMaterialBalance = (oldWeight, newWeight, usedWeight) => {
   const old = roundWeight(Number(oldWeight));

@@ -4,6 +4,8 @@ import {
   calculateRawMaterialNetWeight,
   formatIsoDate,
   formatWeight,
+  isNegativeRawMaterialEntry,
+  normalizeRawMaterialEntry,
   sanitizeFilename,
 } from './statementCalculator';
 
@@ -15,6 +17,7 @@ const RIGHT = PAGE_WIDTH - LEFT;
 const COLOR = rgb(0.12, 0.18, 0.27);
 const MUTED = rgb(0.38, 0.43, 0.5);
 const LINE = rgb(0.81, 0.84, 0.88);
+const NEGATIVE = rgb(0.8, 0, 0);
 
 const money = value => `INR ${Number(value || 0).toFixed(2)}`;
 const monthName = month => new Date(2000, month - 1, 1).toLocaleString('en', { month: 'long' });
@@ -57,7 +60,7 @@ export const statementPdfService = {
       line(y);
       y -= 16;
     };
-    const table = (headers, widths, rows, render, totalLabel, totalValue) => {
+    const table = (headers, widths, rows, render, totalLabel, totalValue, rowColor, totalColor = COLOR) => {
       const tableRight = LEFT + widths.reduce((total, width) => total + width, 0);
       const xPositions = widths.reduce((positions, width, index) => {
         positions.push(index ? positions[index - 1] + widths[index - 1] : LEFT);
@@ -77,8 +80,9 @@ export const statementPdfService = {
           drawHeader();
         }
         const values = render(row);
+        const color = rowColor ? rowColor(row) : COLOR;
         values.forEach((value, index) => {
-          text(truncate(value, font, 8.5, widths[index] - 5), xPositions[index], y, 8.5);
+          text(truncate(value, font, 8.5, widths[index] - 5), xPositions[index], y, 8.5, font, color);
         });
         y -= 14;
         line(y, LEFT, tableRight);
@@ -87,7 +91,7 @@ export const statementPdfService = {
       ensureSpace(22);
       if (totalLabel) {
         text(totalLabel, LEFT, y, 8, bold);
-        text(totalValue, RIGHT - 86, y, 8, bold);
+        text(totalValue, RIGHT - 86, y, 8, bold, totalColor);
         y -= 18;
       }
     };
@@ -103,13 +107,17 @@ export const statementPdfService = {
     y -= 18;
 
     section('RAW MATERIAL');
+    const rawMaterials = statement.rawMaterials.map(normalizeRawMaterialEntry);
+    const rawMaterialTotal = calculateRawMaterialNetWeight(rawMaterials);
     table(
       ['DATE', 'RAW MATERIAL', 'BAG W.T', 'NO. OF BAG', 'TOTAL W.T (KG)'],
       [70, 210, 72, 76, 91],
-      statement.rawMaterials,
+      rawMaterials,
       row => [formatIsoDate(row.date), row.material_name, formatWeight(row.bag_weight), row.number_of_bags, formatWeight(row.total_weight)],
       'TOTAL RAW MATERIAL (KG)',
-      formatWeight(calculateRawMaterialNetWeight(statement.rawMaterials))
+      formatWeight(rawMaterialTotal),
+      row => isNegativeRawMaterialEntry(row) ? NEGATIVE : COLOR,
+      rawMaterialTotal < 0 ? NEGATIVE : COLOR
     );
 
     section('RAW MATERIAL BALANCE (KG)');

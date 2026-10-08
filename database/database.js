@@ -1,8 +1,9 @@
 import * as SQLite from 'expo-sqlite';
+import { calculateMaterialBalance, normalizeRawMaterialEntry } from '../services/statementCalculator';
 import { normalizeLegacyRawMaterialEntry } from '../utils/legacyRawMaterial';
 
 const DATABASE_NAME = 'invoice_app.db';
-const CURRENT_SCHEMA_VERSION = 4;
+const CURRENT_SCHEMA_VERSION = 5;
 let dbInstance = null;
 
 const hasColumn = async (db, table, column) => {
@@ -214,6 +215,66 @@ export const initDatabase = async () => {
           }
         }
         await db.runAsync('UPDATE version SET current_version = 4 WHERE id = 1');
+      }
+      const normalizedWeightVersion = await db.getFirstAsync('SELECT current_version FROM version WHERE id = 1');
+      if (normalizedWeightVersion.current_version < 5) {
+        const rawMaterials = await db.getAllAsync(
+          'SELECT id, bag_weight, number_of_bags, total_weight FROM raw_material_entries'
+        );
+        for (const entry of rawMaterials) {
+          const normalized = normalizeRawMaterialEntry(entry);
+          if (Number(entry.total_weight) !== normalized.total_weight) {
+            await db.runAsync('UPDATE raw_material_entries SET total_weight = ? WHERE id = ?', [
+              normalized.total_weight,
+              entry.id,
+            ]);
+          }
+        }
+
+        const statements = await db.getAllAsync('SELECT * FROM statements');
+        for (const statement of statements) {
+          const snapshot = JSON.parse(statement.snapshot_json);
+          if (!Array.isArray(snapshot.rawMaterials)) continue;
+          const legacyEntries = snapshot.rawMaterials.map(normalizeLegacyRawMaterialEntry);
+          const normalizedEntries = legacyEntries.map(normalizeRawMaterialEntry);
+          const netNewWeight = normalizedEntries.reduce((sum, entry) => sum + entry.total_weight, 0);
+          const correctedBalance = calculateMaterialBalance(
+            snapshot.balance.oldWeight,
+            netNewWeight,
+            snapshot.balance.usedWeight
+          );
+          const needsCorrection = snapshot.rawMaterials.some((entry, index) =>
+            Number(entry.total_weight) !== normalizedEntries[index].total_weight ||
+            entry.is_return !== undefined
+          ) || snapshot.balance.newWeight !== correctedBalance.newWeight ||
+            snapshot.balance.totalWeight !== correctedBalance.totalWeight ||
+            snapshot.balance.balanceWeight !== correctedBalance.balanceWeight;
+
+          if (needsCorrection) {
+            snapshot.rawMaterials = normalizedEntries;
+            snapshot.balance = {
+              ...snapshot.balance,
+              ...correctedBalance,
+            };
+            snapshot.pdfUri = null;
+            await db.runAsync(
+              `UPDATE statements SET old_weight = ?, new_weight = ?, total_weight = ?,
+                 used_weight = ?, rejection_weight = ?, balance_weight = ?,
+                 pdf_uri = NULL, snapshot_json = ? WHERE id = ?`,
+              [
+                correctedBalance.oldWeight,
+                correctedBalance.newWeight,
+                correctedBalance.totalWeight,
+                snapshot.balance.usedWeight,
+                snapshot.balance.rejectionWeight,
+                correctedBalance.balanceWeight,
+                JSON.stringify(snapshot),
+                statement.id,
+              ]
+            );
+          }
+        }
+        await db.runAsync('UPDATE version SET current_version = 5 WHERE id = 1');
       }
     });
   } catch (error) {
