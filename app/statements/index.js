@@ -6,6 +6,7 @@ import { statementRepository } from '../../repositories/statementRepository';
 import { pdfOpenService } from '../../services/pdfOpenService';
 import { pdfService } from '../../services/pdfService';
 import { SafeAreaFlatList, useBottomSafeArea } from '../../components/SafeAreaContent';
+import { formatDecimal } from '../../utils/decimal';
 
 const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 const PAGE_SIZE = 100;
@@ -63,7 +64,7 @@ export default function StatementHistory() {
       <Card.Content>
         <Text variant="titleMedium">{item.customer_name}</Text>
         <Text>{MONTHS[item.month - 1]} {item.year}</Text>
-        <Text variant="titleLarge" style={styles.total}>INR {Number(item.total_amount).toFixed(2)}</Text>
+        <Text variant="titleLarge" style={styles.total}>INR {formatDecimal(item.total_amount)}</Text>
         <Text variant="bodySmall" style={{ color: theme.colors.secondary }}>Generated {new Date(item.finalized_at).toLocaleDateString()}</Text>
       </Card.Content>
       <Card.Actions>

@@ -3,7 +3,7 @@ import { calculateMaterialBalance, normalizeRawMaterialEntry } from '../services
 import { normalizeLegacyRawMaterialEntry } from '../utils/legacyRawMaterial';
 
 const DATABASE_NAME = 'invoice_app.db';
-const CURRENT_SCHEMA_VERSION = 5;
+const CURRENT_SCHEMA_VERSION = 6;
 let dbInstance = null;
 
 const hasColumn = async (db, table, column) => {
@@ -71,6 +71,7 @@ export const initDatabase = async () => {
       igstAmount REAL DEFAULT 0,
       grandTotal REAL DEFAULT 0,
       amountInWords TEXT,
+      customerAddress TEXT,
       pdfPath TEXT,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
@@ -275,6 +276,20 @@ export const initDatabase = async () => {
           }
         }
         await db.runAsync('UPDATE version SET current_version = 5 WHERE id = 1');
+      }
+      const invoiceAddressVersion = await db.getFirstAsync('SELECT current_version FROM version WHERE id = 1');
+      if (invoiceAddressVersion.current_version < 6) {
+        if (!(await hasColumn(db, 'invoices', 'customerAddress'))) {
+          await db.execAsync('ALTER TABLE invoices ADD COLUMN customerAddress TEXT');
+        }
+        await db.execAsync(`
+          UPDATE invoices
+          SET customerAddress = (
+            SELECT address FROM customers WHERE customers.id = invoices.customerId
+          )
+          WHERE customerAddress IS NULL;
+        `);
+        await db.runAsync('UPDATE version SET current_version = 6 WHERE id = 1');
       }
     });
   } catch (error) {

@@ -3,11 +3,14 @@ import test from 'node:test';
 import { evaluateArithmeticExpression } from '../services/arithmeticExpression.js';
 import {
   calculateMaterialBalance,
+  calculateProductionWeight,
   calculateRawMaterialNetWeight,
   calculateRawTotal,
   isNegativeRawMaterialEntry,
   normalizeRawMaterialEntry,
 } from '../services/statementCalculator.js';
+import { calculateItemAmount, calculateTotals } from '../services/invoiceCalculator.js';
+import { formatDecimal } from '../utils/decimal.js';
 import { normalizeLegacyRawMaterialEntry } from '../utils/legacyRawMaterial.js';
 import { encodeBytesToBase64 } from '../utils/encodeBase64.js';
 import { processInBatches } from '../utils/processInBatches.js';
@@ -52,6 +55,20 @@ test('evaluates supported arithmetic expressions without eval', () => {
   }
   assert.throws(() => evaluateArithmeticExpression('1/0'), /Division by zero/);
   assert.throws(() => evaluateArithmeticExpression('globalThis.process.exit()'));
+});
+
+test('preserves decimal precision through production and invoice totals', () => {
+  assert.equal(calculateProductionWeight(5000, 1.2756), 6.378);
+  assert.equal(calculateItemAmount('0.1', '0.2'), 0.02);
+  assert.equal(evaluateArithmeticExpression('0.1+0.2'), 0.3);
+
+  const totals = calculateTotals([
+    { amount: 0.1 },
+    { amount: 0.2 },
+  ], 0, '2.5', 0, 0);
+  assert.equal(formatDecimal(totals.subtotal), '0.3');
+  assert.equal(formatDecimal(totals.sgstAmount), '0.0075');
+  assert.equal(formatDecimal(totals.grandTotal), '0.3075');
 });
 
 test('migrates legacy RETURN rows to canonical signed quantities', () => {

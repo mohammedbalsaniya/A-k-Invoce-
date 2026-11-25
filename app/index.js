@@ -4,6 +4,7 @@ import { useRouter } from 'expo-router';
 import { useEffect } from 'react';
 import { useInvoiceStore } from '../stores/invoiceStore';
 import { SafeAreaScrollView } from '../components/SafeAreaContent';
+import { formatDecimal } from '../utils/decimal';
 export default function Dashboard() {
   const router = useRouter();
   const theme = useTheme();
@@ -60,7 +61,7 @@ export default function Dashboard() {
           </View>
           <View style={styles.statRow}>
             <Text variant="bodyLarge">Total Revenue</Text>
-            <Text variant="titleLarge">₹{Number(totalRevenue).toFixed(2)} </Text>
+            <Text variant="titleLarge">₹{formatDecimal(totalRevenue)} </Text>
           </View>
         </Card.Content>
       </Card>

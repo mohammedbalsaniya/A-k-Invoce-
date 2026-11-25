@@ -1,5 +1,6 @@
 import { View, StyleSheet } from 'react-native';
 import { TextInput, IconButton, Text, useTheme } from 'react-native-paper';
+import { formatDecimal } from '../utils/decimal';
 
 export default function InvoiceItemInput({ item, index, onChange, onRemove }) {
   const theme = useTheme();
@@ -33,18 +34,18 @@ export default function InvoiceItemInput({ item, index, onChange, onRemove }) {
         />
         <TextInput
           label="Qty"
-          value={item.qty.toString()}
+          value={String(item.qty ?? '')}
           onChangeText={(val) => onChange(index, 'qty', val)}
           mode="outlined"
           style={[inputStyle, { flex: 1, marginRight: 8 }]}
           textColor={inputTextColor}
-          keyboardType="numeric"
+          keyboardType="decimal-pad"
         />
       </View>
       <View style={styles.row}>
         <TextInput
-          label="Wt / Piece"
-          value={item.weightPerPiece.toString()}
+          label="Wt / Piece (g)"
+          value={String(item.weightPerPiece ?? '')}
           onChangeText={(val) => onChange(index, 'weightPerPiece', val)}
           mode="outlined"
           style={[inputStyle, { flex: 1, marginRight: 8 }]}
@@ -53,16 +54,16 @@ export default function InvoiceItemInput({ item, index, onChange, onRemove }) {
         />
         <TextInput
           label="Rate"
-          value={item.rate.toString()}
+          value={String(item.rate ?? '')}
           onChangeText={(val) => onChange(index, 'rate', val)}
           mode="outlined"
           style={[inputStyle, { flex: 1 }]}
           textColor={inputTextColor}
-          keyboardType="numeric"
+          keyboardType="decimal-pad"
         />
       </View>
       <View style={styles.amountContainer}>
-        <Text variant="labelLarge">Amount: ₹{item.amount.toFixed(2)}</Text>
+        <Text variant="labelLarge">Amount: ₹{formatDecimal(item.amount)}</Text>
       </View>
     </View>
   );

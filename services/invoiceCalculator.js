@@ -1,28 +1,38 @@
+import { Decimal, decimal, decimalToNumber } from '../utils/decimal.js';
+
+const amountOrZero = value => {
+  try {
+    const parsed = decimal(value);
+    return parsed.isFinite() ? parsed : new Decimal(0);
+  } catch {
+    return new Decimal(0);
+  }
+};
+
 export const calculateItemAmount = (qty, rate) => {
-  const q = parseFloat(qty) || 0;
-  const r = parseFloat(rate) || 0;
-  return parseFloat((q * r).toFixed(2));
+  return decimalToNumber(amountOrZero(qty).times(amountOrZero(rate)));
 };
 
 export const calculateTotals = (items, discountPercent = 0, sgstPercent = 0, cgstPercent = 0, igstPercent = 0) => {
-  const subtotal = items.reduce((sum, item) => sum + (parseFloat(item.amount) || 0), 0);
-  const discountAmount = (subtotal * (parseFloat(discountPercent) || 0)) / 100;
-  const taxableAmount = subtotal - discountAmount;
-  
-  const sgstAmount = (taxableAmount * (parseFloat(sgstPercent) || 0)) / 100;
-  const cgstAmount = (taxableAmount * (parseFloat(cgstPercent) || 0)) / 100;
-  const igstAmount = (taxableAmount * (parseFloat(igstPercent) || 0)) / 100;
-  
-  const grandTotal = taxableAmount + sgstAmount + cgstAmount + igstAmount;
+  const subtotal = items.reduce((sum, item) => sum.plus(amountOrZero(item.amount)), new Decimal(0));
+  const discountAmount = subtotal.times(amountOrZero(discountPercent)).div(100);
+  const taxableAmount = subtotal.minus(discountAmount);
+
+  const sgstAmount = taxableAmount.times(amountOrZero(sgstPercent)).div(100);
+  const cgstAmount = taxableAmount.times(amountOrZero(cgstPercent)).div(100);
+  const igstAmount = taxableAmount.times(amountOrZero(igstPercent)).div(100);
+
+  const netTaxableAmount = subtotal.minus(discountAmount);
+  const grandTotal = netTaxableAmount.plus(sgstAmount).plus(cgstAmount).plus(igstAmount);
 
   return {
-    subtotal: parseFloat(subtotal.toFixed(2)),
-    discount: parseFloat(discountAmount.toFixed(2)),
-    taxableAmount: parseFloat(taxableAmount.toFixed(2)),
-    sgstAmount: parseFloat(sgstAmount.toFixed(2)),
-    cgstAmount: parseFloat(cgstAmount.toFixed(2)),
-    igstAmount: parseFloat(igstAmount.toFixed(2)),
-    grandTotal: Math.round(grandTotal) // Rounding off to nearest integer
+    subtotal: decimalToNumber(subtotal),
+    discount: decimalToNumber(discountAmount),
+    taxableAmount: decimalToNumber(netTaxableAmount),
+    sgstAmount: decimalToNumber(sgstAmount),
+    cgstAmount: decimalToNumber(cgstAmount),
+    igstAmount: decimalToNumber(igstAmount),
+    grandTotal: decimalToNumber(grandTotal),
   };
 };
 
@@ -39,13 +49,18 @@ export const numberToWords = (num) => {
     return convert(Math.floor(n / 10000000)) + ' Crore' + (n % 10000000 !== 0 ? ' ' + convert(n % 10000000) : '');
   };
 
-  const [whole, decimal] = num.toString().split('.');
-  let words = convert(parseInt(whole)) + ' Rupees';
-  
-  if (decimal && parseInt(decimal) > 0) {
-    const d = parseInt(decimal.substring(0, 2).padEnd(2, '0'));
-    words += ' and ' + convert(d) + ' Paise';
+  const value = decimal(num);
+  const whole = value.abs().trunc();
+  const fractionalDigits = value.abs().minus(whole).toFixed().split('.')[1] || '';
+  let words = convert(whole.toNumber()) + ' Rupees';
+
+  if (fractionalDigits) {
+    if (fractionalDigits.length <= 2) {
+      words += ' and ' + convert(Number(fractionalDigits.padEnd(2, '0'))) + ' Paise';
+    } else {
+      words += ` and ${fractionalDigits.split('').map(digit => a[Number(digit)] || 'Zero').join(' ')} decimal digits`;
+    }
   }
-  
+
   return words + ' Only';
 };

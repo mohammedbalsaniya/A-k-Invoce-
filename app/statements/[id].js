@@ -7,6 +7,7 @@ import { pdfOpenService } from '../../services/pdfOpenService';
 import { pdfService } from '../../services/pdfService';
 import { formatIsoDate, formatWeight } from '../../services/statementCalculator';
 import { SafeAreaScrollView } from '../../components/SafeAreaContent';
+import { formatDecimal } from '../../utils/decimal';
 
 const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 
@@ -35,7 +36,7 @@ export default function StatementDetails() {
     return <View style={styles.loading}><ActivityIndicator /><Text style={styles.loadingText}>Loading statement…</Text></View>;
   }
   const snapshot = statement.snapshot;
-  const money = value => `INR ${Number(value || 0).toFixed(2)}`;
+  const money = value => `INR ${formatDecimal(value)}`;
 
   return (
     <SafeAreaScrollView style={[styles.container, { backgroundColor: theme.colors.background }]}>
@@ -75,7 +76,7 @@ export default function StatementDetails() {
           {snapshot.production.map((row, index) => (
             <View key={`${row.item_id}-${index}`} style={styles.production}>
               <Text variant="titleSmall">{row.description}</Text>
-              <Text>{formatIsoDate(row.invoiceDate)} · Qty {row.qty} · {formatWeight(row.weightPerPiece)} KG/pc · {formatWeight(row.totalWeight)} KG</Text>
+              <Text>{formatIsoDate(row.invoiceDate)} · Qty {row.qty} · {formatWeight(row.weightPerPiece)} {Number(snapshot.snapshotVersion || 1) >= 2 ? 'g/pc' : 'KG/pc'} · {formatWeight(row.totalWeight)} KG</Text>
               <Text>{money(row.amount)}</Text>
             </View>
           ))}

@@ -1,3 +1,5 @@
+import { Decimal, decimalToNumber } from '../utils/decimal.js';
+
 const MAX_EXPRESSION_LENGTH = 128;
 
 export const evaluateArithmeticExpression = expression => {
@@ -14,7 +16,7 @@ export const evaluateArithmeticExpression = expression => {
     while (input[position] === '+' || input[position] === '-') {
       const operator = input[position++];
       const right = parseTerm();
-      value = operator === '+' ? value + right : value - right;
+      value = operator === '+' ? value.plus(right) : value.minus(right);
       operations += 1;
     }
     return value;
@@ -25,10 +27,10 @@ export const evaluateArithmeticExpression = expression => {
     while (input[position] === '*' || input[position] === '/') {
       const operator = input[position++];
       const right = parseUnary();
-      if (operator === '/' && right === 0) {
+      if (operator === '/' && right.isZero()) {
         throw new Error('Division by zero is not allowed.');
       }
-      value = operator === '*' ? value * right : value / right;
+      value = operator === '*' ? value.times(right) : value.div(right);
       operations += 1;
     }
     return value;
@@ -39,7 +41,7 @@ export const evaluateArithmeticExpression = expression => {
       const negative = input[position++] === '-';
       const value = parseUnary();
       operations += 1;
-      return negative ? -value : value;
+      return negative ? value.negated() : value;
     }
     return parsePrimary();
   };
@@ -60,15 +62,15 @@ export const evaluateArithmeticExpression = expression => {
       throw new Error('Use numbers and only +, -, *, /, and parentheses.');
     }
     position += match[0].length;
-    return Number(match[0]);
+    return new Decimal(match[0]);
   };
 
   const result = parseExpression();
   if (position !== input.length || operations > MAX_EXPRESSION_LENGTH) {
     throw new Error('Check the arithmetic expression.');
   }
-  if (!Number.isFinite(result)) {
+  if (!result.isFinite()) {
     throw new Error('The arithmetic result is outside the supported range.');
   }
-  return result;
+  return decimalToNumber(result);
 };

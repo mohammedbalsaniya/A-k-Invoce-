@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { invoiceRepository } from '../repositories/invoiceRepository';
+import { Decimal, decimalToNumber } from '../utils/decimal';
 
 export const useInvoiceStore = create((set, get) => ({
   invoices: [],
@@ -15,10 +16,10 @@ fetchInvoices: async () => {
   try {
     const data = await invoiceRepository.getAll();
 
-    const totalRevenue = data.reduce(
-      (sum, invoice) => sum + Number(invoice.grandTotal || 0),
-      0
-    );
+    const totalRevenue = decimalToNumber(data.reduce(
+      (sum, invoice) => sum.plus(invoice.grandTotal || 0),
+      new Decimal(0)
+    ));
 
     set({
       invoices: data,
@@ -52,6 +53,19 @@ fetchInvoices: async () => {
       await get().fetchInvoices();
       set({ loading: false });
       return id;
+    } catch (err) {
+      set({ error: err.message, loading: false });
+      throw err;
+    }
+  },
+
+  updateInvoice: async (id, invoice, items) => {
+    set({ loading: true, error: null });
+    try {
+      await invoiceRepository.update(id, invoice, items);
+      await get().fetchInvoices();
+      const currentInvoice = await invoiceRepository.getById(id);
+      set({ currentInvoice, loading: false });
     } catch (err) {
       set({ error: err.message, loading: false });
       throw err;

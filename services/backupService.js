@@ -12,7 +12,7 @@ const BACKUP_DIRECTORY = `${FileSystem.documentDirectory}backups/`;
 const BACKUP_TABLES = {
   settings: ['id', 'companyName', 'gstNumber', 'mobileNumber', 'address', 'bankName', 'accountNo', 'branchName', 'ifscCode', 'created_at', 'updated_at'],
   customers: ['id', 'name', 'address', 'gstNumber', 'phone', 'created_at', 'updated_at'],
-  invoices: ['id', 'invoiceNo', 'invoiceDate', 'carrier', 'station', 'customerId', 'subtotal', 'discount', 'taxableAmount', 'sgstPercent', 'sgstAmount', 'cgstPercent', 'cgstAmount', 'igstPercent', 'igstAmount', 'grandTotal', 'amountInWords', 'include_in_statement', 'created_at', 'updated_at'],
+  invoices: ['id', 'invoiceNo', 'invoiceDate', 'carrier', 'station', 'customerId', 'customerAddress', 'subtotal', 'discount', 'taxableAmount', 'sgstPercent', 'sgstAmount', 'cgstPercent', 'cgstAmount', 'igstPercent', 'igstAmount', 'grandTotal', 'amountInWords', 'include_in_statement', 'created_at', 'updated_at'],
   invoice_items: ['id', 'invoiceId', 'description', 'hsn', 'qty', 'weight_per_piece', 'rate', 'amount', 'created_at', 'updated_at'],
   raw_material_entries: ['id', 'customer_id', 'date', 'material_name', 'bag_weight', 'number_of_bags', 'total_weight', 'created_at', 'updated_at'],
   statements: ['id', 'customer_id', 'customer_name', 'month', 'year', 'old_weight', 'new_weight', 'total_weight', 'used_weight', 'rejection_weight', 'balance_weight', 'previous_amount', 'current_amount', 'gst_amount', 'tds_amount', 'total_amount', 'snapshot_json', 'snapshot_version', 'status', 'created_at', 'finalized_at'],

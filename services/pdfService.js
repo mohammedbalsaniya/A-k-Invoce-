@@ -4,6 +4,7 @@ import * as Sharing from 'expo-sharing';
 import { PDFDocument } from 'pdf-lib';
 import { Platform } from 'react-native';
 import { sanitizeFilename } from './statementCalculator';
+import { formatDecimal } from '../utils/decimal';
 
 const INVOICE_DIR = `${FileSystem.documentDirectory}invoices/`;
 
@@ -98,17 +99,17 @@ export const pdfService = {
 
         safeFill(
           `item${row}Qty`,
-          item ? item.qty : ''
+          item ? formatDecimal(item.qty) : ''
         );
 
         safeFill(
           `item${row}Rate`,
-          item ? item.rate : ''
+          item ? formatDecimal(item.rate) : ''
         );
 
         safeFill(
           `item${row}Amount`,
-          item ? item.amount : ''
+          item ? formatDecimal(item.amount) : ''
         );
       }
 
@@ -116,23 +117,23 @@ export const pdfService = {
       // TOTALS
       // =====================================================
 
-      safeFill('subtotal', invoiceData.subtotal);
-      safeFill('discount', invoiceData.discount);
-      safeFill('taxableAmount', invoiceData.taxableAmount);
+      safeFill('subtotal', formatDecimal(invoiceData.subtotal));
+      safeFill('discount', formatDecimal(invoiceData.discount));
+      safeFill('taxableAmount', formatDecimal(invoiceData.taxableAmount));
 
       // SGST
-      safeFill('sgstPercent', invoiceData.sgstPercent);
-      safeFill('sgstAmount', invoiceData.sgstAmount);
+      safeFill('sgstPercent', formatDecimal(invoiceData.sgstPercent));
+      safeFill('sgstAmount', formatDecimal(invoiceData.sgstAmount));
 
       // CGST
-      safeFill('cgstPercent', invoiceData.cgstPercent);
-      safeFill('cgstAmount', invoiceData.cgstAmount);
+      safeFill('cgstPercent', formatDecimal(invoiceData.cgstPercent));
+      safeFill('cgstAmount', formatDecimal(invoiceData.cgstAmount));
 
       // IGST
-      safeFill('igstPercent', invoiceData.igstPercent);
-      safeFill('igstAmount', invoiceData.igstAmount);
+      safeFill('igstPercent', formatDecimal(invoiceData.igstPercent));
+      safeFill('igstAmount', formatDecimal(invoiceData.igstAmount));
 
-      safeFill('grandTotal', invoiceData.grandTotal);
+      safeFill('grandTotal', formatDecimal(invoiceData.grandTotal));
       safeFill('amountInWords', invoiceData.amountInWords);
 
       // =====================================================

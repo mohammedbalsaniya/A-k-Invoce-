@@ -65,7 +65,7 @@ export const statementRepository = {
         snapshot.amounts.tdsAmount,
         snapshot.amounts.totalAmount,
         JSON.stringify(snapshot),
-        1,
+        statement.snapshotVersion || 1,
         statement.pdfUri,
         statement.finalizedAt,
       ]

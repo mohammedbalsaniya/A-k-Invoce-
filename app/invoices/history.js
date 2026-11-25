@@ -6,6 +6,7 @@ import { useEffect, useState } from 'react';
 import { pdfService } from '../../services/pdfService';
 import { pdfOpenService } from '../../services/pdfOpenService';
 import { SafeAreaFlatList } from '../../components/SafeAreaContent';
+import { formatDecimal } from '../../utils/decimal';
 
 export default function InvoiceHistory() {
   const router = useRouter();
@@ -54,7 +55,7 @@ export default function InvoiceHistory() {
             </Text>
           </View>
           <View style={{ alignItems: 'flex-end' }}>
-            <Text variant="titleMedium" style={{ fontWeight: 'bold' }}>₹{item.grandTotal}</Text>
+            <Text variant="titleMedium" style={{ fontWeight: 'bold' }}>₹{formatDecimal(item.grandTotal)}</Text>
             <View style={{ flexDirection: 'row' }}>
               <IconButton icon="file-pdf-box" size={20} onPress={() => handlePdfAction(item.id, true)} />
               <IconButton icon="share-variant" size={20} onPress={() => handlePdfAction(item.id, false)} />

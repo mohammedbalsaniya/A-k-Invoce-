@@ -10,6 +10,7 @@ import {
 } from './statementCalculator';
 import { encodeBytesToBase64 } from '../utils/encodeBase64';
 import { processInBatches } from '../utils/processInBatches';
+import { formatDecimal } from '../utils/decimal';
 
 const DIRECTORY = `${FileSystem.documentDirectory}statements/`;
 const PAGE_WIDTH = 595.28;
@@ -21,7 +22,7 @@ const MUTED = rgb(0.38, 0.43, 0.5);
 const LINE = rgb(0.81, 0.84, 0.88);
 const NEGATIVE = rgb(0.8, 0, 0);
 
-const money = value => `INR ${Number(value || 0).toFixed(2)}`;
+const money = value => `INR ${formatDecimal(value)}`;
 const monthName = month => new Date(2000, month - 1, 1).toLocaleString('en', { month: 'long' });
 
 const truncate = (text, font, size, maxWidth) => {
@@ -151,7 +152,15 @@ export const statementPdfService = {
     section('PRODUCTION');
     onProgress({ stage: 'production' });
     await table(
-      ['DATE', 'ITEM NAME', 'QTY OF PC.', 'W.T PER PC.', 'TOTAL W.T', 'RATE', 'AMOUNT'],
+      [
+        'DATE',
+        'ITEM NAME',
+        'QTY OF PC.',
+        Number(statement.snapshotVersion || 1) >= 2 ? 'WT/PC (G)' : 'WT/PC',
+        'TOTAL WT (KG)',
+        'RATE',
+        'AMOUNT',
+      ],
       [57, 125, 61, 68, 66, 60, 82],
       statement.production,
       row => [

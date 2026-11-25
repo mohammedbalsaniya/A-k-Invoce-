@@ -1,16 +1,18 @@
 import { Alert, View, StyleSheet } from 'react-native';
 import { Text, Card, useTheme, Button, Divider, DataTable, Switch } from 'react-native-paper';
-import { useLocalSearchParams, } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useInvoiceStore } from '../../stores/invoiceStore';
 import { useEffect } from 'react';
 import { pdfService } from '../../services/pdfService';
 import { pdfOpenService } from '../../services/pdfOpenService';
 import { invoiceRepository } from '../../repositories/invoiceRepository';
 import { SafeAreaScrollView } from '../../components/SafeAreaContent';
+import { formatDecimal } from '../../utils/decimal';
 
 export default function InvoiceDetails() {
   const { id } = useLocalSearchParams();
   const theme = useTheme();
+  const router = useRouter();
 
 const { currentInvoice, fetchInvoiceById } = useInvoiceStore();
 
@@ -102,22 +104,31 @@ const { currentInvoice, fetchInvoiceById } = useInvoiceStore();
         </Card.Content>
       </Card>
 
+      <Button
+        mode="outlined"
+        icon="pencil"
+        onPress={() => router.push({ pathname: '/invoices/create', params: { id: String(id) } })}
+        style={styles.editButton}
+      >
+        Edit Invoice
+      </Button>
+
       <Card style={styles.card}>
         <Card.Content style={{ padding: 0 }}>
           <DataTable>
             <DataTable.Header>
               <DataTable.Title>Item</DataTable.Title>
               <DataTable.Title numeric>Qty</DataTable.Title>
-              <DataTable.Title numeric>Wt/Pc</DataTable.Title>
+              <DataTable.Title numeric>Wt/Pc (g)</DataTable.Title>
               <DataTable.Title numeric>Amount</DataTable.Title>
             </DataTable.Header>
 
             {(currentInvoice.items || []).map((item, index) => (
               <DataTable.Row key={index}>
                 <DataTable.Cell>{item.description}</DataTable.Cell>
-                <DataTable.Cell numeric>{item.qty}</DataTable.Cell>
-                <DataTable.Cell numeric>{item.weight_per_piece || 0}</DataTable.Cell>
-                <DataTable.Cell numeric>₹{item.amount}</DataTable.Cell>
+                <DataTable.Cell numeric>{formatDecimal(item.qty)}</DataTable.Cell>
+                <DataTable.Cell numeric>{formatDecimal(item.weight_per_piece || 0)}</DataTable.Cell>
+                <DataTable.Cell numeric>₹{formatDecimal(item.amount)}</DataTable.Cell>
               </DataTable.Row>
             ))}
           </DataTable>
@@ -128,30 +139,30 @@ const { currentInvoice, fetchInvoiceById } = useInvoiceStore();
         <Card.Content>
           <View style={styles.totalRow}>
             <Text>Taxable Amount</Text>
-            <Text>₹{currentInvoice.taxableAmount}</Text>
+            <Text>₹{formatDecimal(currentInvoice.taxableAmount)}</Text>
           </View>
           {currentInvoice.sgstAmount > 0 && (
             <View style={styles.totalRow}>
               <Text>SGST ({currentInvoice.sgstPercent}%)</Text>
-              <Text>₹{currentInvoice.sgstAmount}</Text>
+              <Text>₹{formatDecimal(currentInvoice.sgstAmount)}</Text>
             </View>
           )}
           {currentInvoice.cgstAmount > 0 && (
             <View style={styles.totalRow}>
               <Text>CGST ({currentInvoice.cgstPercent}%)</Text>
-              <Text>₹{currentInvoice.cgstAmount}</Text>
+              <Text>₹{formatDecimal(currentInvoice.cgstAmount)}</Text>
             </View>
           )}
           {currentInvoice.igstAmount > 0 && (
             <View style={styles.totalRow}>
          <Text>IGST ({currentInvoice.igstPercent}%)</Text>
-              <Text>₹{currentInvoice.igstAmount}</Text>
+              <Text>₹{formatDecimal(currentInvoice.igstAmount)}</Text>
             </View>
           )}
           <Divider style={{ marginVertical: 8 }} />
           <View style={styles.totalRow}>
             <Text variant="titleLarge" style={{ fontWeight: 'bold' }}>Grand Total</Text>
-            <Text variant="titleLarge" style={{ fontWeight: 'bold' }}>₹{currentInvoice.grandTotal}</Text>
+            <Text variant="titleLarge" style={{ fontWeight: 'bold' }}>₹{formatDecimal(currentInvoice.grandTotal)}</Text>
           </View>
           <Text variant="bodySmall" style={{ marginTop: 8, fontStyle: 'italic' }}>
             Amount in words: {currentInvoice.amountInWords}
@@ -195,6 +206,9 @@ const styles = StyleSheet.create({
   actions: {
     flexDirection: 'row',
     marginTop: 8,
+  },
+  editButton: {
+    marginBottom: 16,
   },
   inclusionRow: {
     flexDirection: 'row',

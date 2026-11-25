@@ -1,7 +1,7 @@
-const roundWeight = value => Math.round((Number(value) + Number.EPSILON) * 1000) / 1000;
+import { Decimal, decimal, decimalToNumber, formatDecimal } from '../utils/decimal.js';
 
 export const calculateRawTotal = (bagWeight, bags) =>
-  roundWeight(Number(bagWeight) * Number(bags));
+  decimalToNumber(decimal(bagWeight).times(decimal(bags)));
 
 export const normalizeRawMaterialEntry = entry => ({
   ...entry,
@@ -10,32 +10,37 @@ export const normalizeRawMaterialEntry = entry => ({
 
 export const isNegativeRawMaterialEntry = entry => {
   const normalized = normalizeRawMaterialEntry(entry);
-  return Number(normalized.number_of_bags) < 0 || normalized.total_weight < 0;
+  return decimal(normalized.number_of_bags).isNegative() || decimal(normalized.total_weight).isNegative();
 };
 
 export const calculateProductionWeight = (quantity, weightPerPiece) =>
-  roundWeight(Number(quantity) * Number(weightPerPiece));
+  decimalToNumber(decimal(quantity).times(decimal(weightPerPiece)).div(1000));
 
-export const calculateRawMaterialNetWeight = entries =>
-  roundWeight((entries || []).reduce((sum, entry) => sum + normalizeRawMaterialEntry(entry).total_weight, 0));
+export const calculateRawMaterialNetWeight = entries => {
+  const total = (entries || []).reduce(
+    (sum, entry) => sum.plus(decimal(normalizeRawMaterialEntry(entry).total_weight)),
+    new Decimal(0)
+  );
+  return decimalToNumber(total);
+};
 
 export const calculateMaterialBalance = (oldWeight, newWeight, usedWeight) => {
-  const old = roundWeight(Number(oldWeight));
-  const added = roundWeight(Number(newWeight));
-  const used = roundWeight(Number(usedWeight));
-  const total = roundWeight(old + added);
-  const rejection = roundWeight(used * 0.01);
+  const old = decimal(oldWeight);
+  const added = decimal(newWeight);
+  const used = decimal(usedWeight);
+  const total = old.plus(added);
+  const rejection = used.times('0.01');
   return {
-    oldWeight: old,
-    newWeight: added,
-    totalWeight: total,
-    usedWeight: used,
-    rejectionWeight: rejection,
-    balanceWeight: roundWeight(total - used - rejection),
+    oldWeight: decimalToNumber(old),
+    newWeight: decimalToNumber(added),
+    totalWeight: decimalToNumber(total),
+    usedWeight: decimalToNumber(used),
+    rejectionWeight: decimalToNumber(rejection),
+    balanceWeight: decimalToNumber(total.minus(used).minus(rejection)),
   };
 };
 
-export const formatWeight = value => Number(value || 0).toFixed(3);
+export const formatWeight = formatDecimal;
 
 export const sanitizeFilename = value =>
   String(value || '')

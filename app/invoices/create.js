@@ -1,7 +1,7 @@
 import { View, StyleSheet, ScrollView, Alert } from 'react-native';
 import { TextInput, Button, Text, useTheme, List, Card, Divider, Portal, Dialog } from 'react-native-paper';
-import { useRouter, useFocusEffect } from 'expo-router';
-import { useState, useCallback, useMemo } from 'react';
+import { useRouter, useFocusEffect, useLocalSearchParams } from 'expo-router';
+import { useState, useCallback, useMemo, useEffect } from 'react';
 import { useCustomerStore } from '../../stores/customerStore';
 import { useSettingsStore } from '../../stores/settingsStore';
 import { useInvoiceStore } from '../../stores/invoiceStore';
@@ -10,15 +10,19 @@ import { pdfService } from '../../services/pdfService';
 import InvoiceItemInput from '../../components/InvoiceItemInput';
 import { isValidIsoDate } from '../../services/statementCalculator';
 import { SafeAreaScrollView } from '../../components/SafeAreaContent';
+import { formatDecimal } from '../../utils/decimal';
 
 export default function CreateInvoice() {
   const theme = useTheme();
   const router = useRouter();
+  const { id: invoiceIdParam } = useLocalSearchParams();
+  const invoiceId = Array.isArray(invoiceIdParam) ? invoiceIdParam[0] : invoiceIdParam;
+  const isEditing = Boolean(invoiceId);
   const taxInputStyle = [styles.taxInput, theme.dark && styles.darkTaxInput];
   const taxInputTextColor = theme.dark ? '#ffffff' : undefined;
   const { customers, fetchCustomers } = useCustomerStore();
   const { settings, fetchSettings } = useSettingsStore();
-  const { createInvoice, getNextInvoiceNo } = useInvoiceStore();
+  const { createInvoice, updateInvoice, fetchInvoiceById, getNextInvoiceNo } = useInvoiceStore();
 
   const [invoiceNo, setInvoiceNo] = useState('');
   const [invoiceDate, setInvoiceDate] = useState(new Date().toISOString().split('T')[0]);
@@ -44,14 +48,56 @@ export default function CreateInvoice() {
   ), [items, sgstPercent, cgstPercent, igstPercent, taxType]);
 
   const [loading, setLoading] = useState(false);
+  const [invoiceLoaded, setInvoiceLoaded] = useState(!isEditing);
 
   useFocusEffect(
     useCallback(() => {
       fetchCustomers();
       fetchSettings();
-      getNextInvoiceNo().then(setInvoiceNo);
-    }, [fetchCustomers, fetchSettings, getNextInvoiceNo])
+      if (!isEditing) getNextInvoiceNo().then(setInvoiceNo);
+    }, [fetchCustomers, fetchSettings, getNextInvoiceNo, isEditing])
   );
+
+  useEffect(() => {
+    if (!isEditing) return undefined;
+    let active = true;
+    fetchInvoiceById(Number(invoiceId)).then(invoice => {
+      if (!active) return;
+      if (!invoice) {
+        Alert.alert('Invoice unavailable', 'This invoice could not be loaded for editing.', [
+          { text: 'OK', onPress: () => router.back() },
+        ]);
+        return;
+      }
+      setInvoiceLoaded(true);
+      setInvoiceNo(invoice.invoiceNo);
+      setInvoiceDate(invoice.invoiceDate);
+      setCarrier(invoice.carrier || '');
+      setStation(invoice.station || '');
+      setSelectedCustomer({
+        id: invoice.customerId,
+        name: invoice.customerName,
+        address: invoice.customerAddress,
+      });
+      setCustomerAddress(invoice.customerAddress || '');
+      setSgstPercent(String(invoice.sgstPercent || 0));
+      setCgstPercent(String(invoice.cgstPercent || 0));
+      setIgstPercent(String(invoice.igstPercent || 0));
+      setTaxType(Number(invoice.igstPercent) > 0 ? 'igst' : 'gst');
+      setItems((invoice.items || []).map(item => ({
+        id: item.id,
+        description: item.description,
+        hsn: item.hsn || '',
+        qty: String(item.qty),
+        weightPerPiece: String(item.weight_per_piece || 0),
+        rate: String(item.rate),
+        amount: calculateItemAmount(item.qty, item.rate),
+      })));
+    }).catch(error => {
+      if (active) Alert.alert('Could not load invoice', error.message);
+    });
+    return () => { active = false; };
+  }, [fetchInvoiceById, invoiceId, isEditing, router]);
 
   const addItem = () => {
     if (items.length >= 6) {
@@ -108,7 +154,7 @@ export default function CreateInvoice() {
         station,
         customerId: selectedCustomer.id,
         customerName: selectedCustomer.name,
-        customerAddress: customerAddress, // Use the editable address
+        customerAddress,
         ...totals,
         sgstPercent: taxType === 'gst' ? (parseFloat(sgstPercent) || 0) : 0,
         cgstPercent: taxType === 'gst' ? (parseFloat(cgstPercent) || 0) : 0,
@@ -119,7 +165,7 @@ export default function CreateInvoice() {
           qty: Number(item.qty),
           weightPerPiece: Number(item.weightPerPiece),
           rate: Number(item.rate),
-          amount: Number(item.amount),
+          amount: calculateItemAmount(item.qty, item.rate),
         }))
       };
 
@@ -127,11 +173,17 @@ export default function CreateInvoice() {
       const pdfPath = await pdfService.generateInvoicePDF(invoiceData, settings);
 
       // 2. Save to Database
-      await createInvoice({ ...invoiceData, pdfPath }, invoiceData.items);
-
-      Alert.alert('Success', 'Invoice generated and saved successfully!', [
-        { text: 'OK', onPress: () => router.push('/invoices/history') }
-      ]);
+      if (isEditing) {
+        await updateInvoice(Number(invoiceId), { ...invoiceData, pdfPath }, invoiceData.items);
+        Alert.alert('Success', 'Invoice changes saved successfully.', [
+          { text: 'OK', onPress: () => router.replace(`/invoices/${invoiceId}`) }
+        ]);
+      } else {
+        await createInvoice({ ...invoiceData, pdfPath }, invoiceData.items);
+        Alert.alert('Success', 'Invoice generated and saved successfully!', [
+          { text: 'OK', onPress: () => router.push('/invoices/history') }
+        ]);
+      }
     } catch (err) {
       console.error(err);
       Alert.alert('Error', 'Failed to generate invoice: ' + err.message);
@@ -181,7 +233,7 @@ export default function CreateInvoice() {
           <Card.Content>
             <Text variant="titleMedium" style={styles.sectionLabel}>Invoice Info</Text>
             <View style={styles.row}>
-              <TextInput label="Invoice No" value={invoiceNo} onChangeText={setInvoiceNo} mode="outlined" style={[styles.flex1, { marginRight: 8 }]} />
+              <TextInput label="Invoice No" value={invoiceNo} onChangeText={setInvoiceNo} editable={!isEditing} mode="outlined" style={[styles.flex1, { marginRight: 8 }]} />
               <TextInput label="Date" value={invoiceDate} onChangeText={setInvoiceDate} mode="outlined" style={styles.flex1} />
             </View>
             <View style={styles.row}>
@@ -212,7 +264,7 @@ export default function CreateInvoice() {
           <Card.Content>
             <View style={styles.totalRow}>
               <Text>Subtotal</Text>
-              <Text>₹{totals.subtotal.toFixed(2)}</Text>
+              <Text>₹{formatDecimal(totals.subtotal)}</Text>
             </View>
             
             <View style={styles.taxSelector}>
@@ -242,14 +294,14 @@ export default function CreateInvoice() {
                     <TextInput
                       value={sgstPercent}
                       onChangeText={setSgstPercent}
-                      keyboardType="numeric"
+                      keyboardType="decimal-pad"
                       mode="outlined"
                       dense
                       style={taxInputStyle}
                       textColor={taxInputTextColor}
                     />
                   </View>
-                  <Text>₹{totals.sgstAmount.toFixed(2)}</Text>
+                  <Text>₹{formatDecimal(totals.sgstAmount)}</Text>
                 </View>
 
                 <View style={styles.taxRow}>
@@ -258,14 +310,14 @@ export default function CreateInvoice() {
                     <TextInput
                       value={cgstPercent}
                       onChangeText={setCgstPercent}
-                      keyboardType="numeric"
+                      keyboardType="decimal-pad"
                       mode="outlined"
                       dense
                       style={taxInputStyle}
                       textColor={taxInputTextColor}
                     />
                   </View>
-                  <Text>₹{totals.cgstAmount.toFixed(2)}</Text>
+                  <Text>₹{formatDecimal(totals.cgstAmount)}</Text>
                 </View>
               </>
             ) : (
@@ -275,34 +327,41 @@ export default function CreateInvoice() {
                   <TextInput
                     value={igstPercent}
                     onChangeText={setIgstPercent}
-                    keyboardType="numeric"
+                    keyboardType="decimal-pad"
                     mode="outlined"
                     dense
                     style={taxInputStyle}
                     textColor={taxInputTextColor}
                   />
                 </View>
-                <Text>₹{totals.igstAmount.toFixed(2)}</Text>
+                <Text>₹{formatDecimal(totals.igstAmount)}</Text>
               </View>
             )}
 
             <Divider style={{ marginVertical: 8 }} />
             <View style={styles.totalRow}>
               <Text variant="titleLarge" style={{ fontWeight: 'bold' }}>Grand Total</Text>
-              <Text variant="titleLarge" style={{ fontWeight: 'bold' }}>₹{totals.grandTotal}</Text>
+              <Text variant="titleLarge" style={{ fontWeight: 'bold' }}>₹{formatDecimal(totals.grandTotal)}</Text>
             </View>
           </Card.Content>
         </Card>
 
-        <Button 
-          mode="contained" 
-          style={styles.submitButton} 
-          onPress={handleCreateInvoice}
-          loading={loading}
-          disabled={loading}
-        >
-          Generate PDF & Save
-        </Button>
+        <View style={styles.formActions}>
+          {isEditing && (
+            <Button mode="outlined" style={styles.actionButton} onPress={() => router.back()} disabled={loading}>
+              Cancel
+            </Button>
+          )}
+          <Button
+            mode="contained"
+            style={[styles.submitButton, isEditing && styles.actionButton]}
+            onPress={handleCreateInvoice}
+            loading={loading}
+            disabled={loading || !invoiceLoaded}
+          >
+            {isEditing ? 'Save Changes' : 'Generate PDF & Save'}
+          </Button>
+        </View>
         
         <View style={{ height: 40 }} />
       </SafeAreaScrollView>
@@ -413,5 +472,13 @@ const styles = StyleSheet.create({
   submitButton: {
     marginTop: 24,
     paddingVertical: 8,
-  }
+  },
+  formActions: {
+    flexDirection: 'row',
+    gap: 12,
+    marginTop: 16,
+  },
+  actionButton: {
+    flex: 1,
+  },
 });

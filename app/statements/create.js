@@ -14,6 +14,7 @@ import {
 } from '../../services/statementCalculator';
 import { statementPdfService } from '../../services/statementPdfService';
 import { SafeAreaScrollView } from '../../components/SafeAreaContent';
+import { Decimal, decimal, decimalOrZero, decimalToNumber, formatDecimal } from '../../utils/decimal';
 
 const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 const emptyAmounts = { previousAmount: '0', currentAmount: '0', gstAmount: '0', tdsAmount: '0', totalAmount: '0' };
@@ -36,9 +37,12 @@ export default function CreateStatement() {
   const numericMonth = Number(month);
   const numericYear = Number(year);
   const balance = useMemo(() => {
-    const used = source?.production.reduce((sum, row) => sum + row.totalWeight, 0) || 0;
+    const used = source?.production.reduce(
+      (sum, row) => sum.plus(decimal(row.totalWeight)),
+      new Decimal(0)
+    ) || new Decimal(0);
     const added = calculateRawMaterialNetWeight(source?.rawMaterials);
-    return calculateMaterialBalance(Number(oldWeight) || 0, added, used);
+    return calculateMaterialBalance(decimalToNumber(decimalOrZero(oldWeight)), added, decimalToNumber(used));
   }, [oldWeight, source]);
 
   const getCustomers = async () => {
@@ -71,9 +75,15 @@ export default function CreateStatement() {
         weightPerPiece: Number(row.weightPerPiece || 0),
         totalWeight: calculateProductionWeight(Number(row.qty || 0), Number(row.weightPerPiece || 0)),
       }));
-      const currentAmount = production.reduce((sum, row) => sum + Number(row.amount || 0), 0);
+      const currentAmount = production.reduce(
+        (sum, row) => sum.plus(row.amount || 0),
+        new Decimal(0)
+      );
       setSource({ rawMaterials: rows.rawMaterials, production });
-      setAmounts(current => ({ ...current, currentAmount: current.currentAmount === '0' ? currentAmount.toFixed(2) : current.currentAmount }));
+      setAmounts(current => ({
+        ...current,
+        currentAmount: current.currentAmount === '0' ? currentAmount.toFixed() : current.currentAmount,
+      }));
     } catch (error) {
       Alert.alert('Could not prepare statement', error.message);
     } finally {
@@ -86,11 +96,11 @@ export default function CreateStatement() {
     setSource(null);
     setAmounts(current => ({ ...current, currentAmount: '0', totalAmount: '0' }));
   };
-  const amountValue = key => Number(amounts[key]);
-  const suggestedTotal = (amountValue('previousAmount') || 0) +
-    (amountValue('currentAmount') || 0) +
-    (amountValue('gstAmount') || 0) -
-    (amountValue('tdsAmount') || 0);
+  const amountValue = key => decimalToNumber(decimalOrZero(amounts[key]));
+  const suggestedTotal = decimalOrZero(amounts.previousAmount)
+    .plus(decimalOrZero(amounts.currentAmount))
+    .plus(decimalOrZero(amounts.gstAmount))
+    .minus(decimalOrZero(amounts.tdsAmount));
 
   const generate = async () => {
     if (!source) {
@@ -133,7 +143,7 @@ export default function CreateStatement() {
           totalAmount: amountValue('totalAmount'),
         },
         finalizedAt: new Date().toISOString(),
-        snapshotVersion: 1,
+        snapshotVersion: 2,
       };
       statement.pdfUri = await statementPdfService.generate(statement, {
         onProgress: progress => {
@@ -231,8 +241,8 @@ export default function CreateStatement() {
               {editAmountFields.map(([key, label]) => (
                 <TextInput key={key} label={label} value={amounts[key]} onChangeText={value => setAmount(key, value)} keyboardType="decimal-pad" mode="outlined" style={styles.input} />
               ))}
-              <Button mode="text" onPress={() => setAmount('totalAmount', suggestedTotal.toFixed(2))}>
-                Use suggested total: {suggestedTotal.toFixed(2)}
+              <Button mode="text" onPress={() => setAmount('totalAmount', suggestedTotal.toFixed())}>
+                Use suggested total: {formatDecimal(suggestedTotal)}
               </Button>
             </Card.Content>
           </Card>
