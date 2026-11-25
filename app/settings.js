@@ -56,7 +56,7 @@ export default function Settings() {
     setBackupBusy(true);
     try {
       setLastBackup(await backupService.create());
-      Alert.alert('Backup ready', 'Your business data backup was created and shared.');
+      Alert.alert('PDF backup ready', 'A PDF copy was created and shared. PDF backups are for viewing only and cannot be restored.');
     } catch (error) {
       Alert.alert('Could not create backup', error.message);
     } finally {
@@ -248,8 +248,9 @@ export default function Settings() {
           <Card.Content>
             <Text variant="titleLarge" style={styles.sectionTitle}>Data Backup</Text>
             <Text variant="bodyMedium">Last Backup: {lastBackup ? new Date(lastBackup).toLocaleString() : 'Not created'}</Text>
+            <Text variant="bodySmall" style={styles.backupNote}>Create Backup exports a PDF copy for viewing. PDF copies cannot be restored; Restore Backup accepts existing .akbackup files.</Text>
             <Button mode="contained" icon="backup-restore" onPress={createBackup} loading={backupBusy} disabled={backupBusy} style={styles.backupButton}>
-              Create Backup
+              Create PDF Backup
             </Button>
             <Button mode="outlined" icon="restore" onPress={chooseBackup} loading={backupBusy} disabled={backupBusy}>
               Restore Backup
@@ -311,6 +312,9 @@ const styles = StyleSheet.create({
   backupButton: {
     marginTop: 16,
     marginBottom: 8,
+  },
+  backupNote: {
+    marginTop: 8,
   },
   restoreWarning: {
     marginTop: 12,
