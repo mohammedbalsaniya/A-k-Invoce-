@@ -1,0 +1,401 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#101a2d">
+    <meta
+      name="description"
+      content="Download A K PLASTIC for Android. Simple offline billing, invoices, and statements."
+    >
+    <title>A K PLASTIC — Android Download</title>
+    <link rel="icon" type="image/png" href="./assets/app-icon.png">
+    <style>
+      :root {
+        color-scheme: light;
+        font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        font-synthesis: none;
+        text-rendering: optimizeLegibility;
+        -webkit-font-smoothing: antialiased;
+        --navy: #101a2d;
+        --muted: #64748b;
+        --blue: #1769e0;
+        --border: #e2e8f0;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        min-width: 320px;
+        min-height: 100vh;
+        margin: 0;
+        color: var(--navy);
+        background:
+          radial-gradient(ellipse at 82% 4%, rgba(116, 167, 255, 0.19), transparent 31rem),
+          linear-gradient(180deg, #f3f7ff 0%, #fff 58%);
+      }
+
+      .page {
+        display: flex;
+        min-height: 100vh;
+        flex-direction: column;
+      }
+
+      .topbar,
+      main,
+      footer {
+        width: min(100% - 40px, 1040px);
+        margin-inline: auto;
+      }
+
+      .topbar {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding-block: 22px;
+        color: #334155;
+        font-size: 0.9rem;
+        font-weight: 700;
+        letter-spacing: 0.02em;
+      }
+
+      .topbar img {
+        width: 36px;
+        height: 36px;
+        border-radius: 11px;
+      }
+
+      main {
+        flex: 1;
+        padding-block: clamp(24px, 6vw, 72px) 48px;
+      }
+
+      .hero {
+        display: grid;
+        grid-template-columns: minmax(0, 1.15fr) minmax(280px, 0.85fr);
+        align-items: center;
+        gap: clamp(32px, 7vw, 86px);
+      }
+
+      .eyebrow {
+        margin: 0 0 16px;
+        color: var(--blue);
+        font-size: 0.76rem;
+        font-weight: 800;
+        letter-spacing: 0.13em;
+        text-transform: uppercase;
+      }
+
+      h1 {
+        max-width: 680px;
+        margin: 0;
+        font-size: clamp(2.6rem, 7vw, 5rem);
+        letter-spacing: -0.065em;
+        line-height: 0.99;
+      }
+
+      .lead {
+        max-width: 570px;
+        margin: 22px 0 0;
+        color: #53647d;
+        font-size: clamp(1rem, 2vw, 1.16rem);
+        line-height: 1.7;
+      }
+
+      .badges {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        margin-top: 24px;
+      }
+
+      .badge {
+        display: inline-flex;
+        min-height: 34px;
+        align-items: center;
+        gap: 8px;
+        padding: 6px 12px;
+        border: 1px solid var(--border);
+        border-radius: 999px;
+        background: rgba(255, 255, 255, 0.78);
+        color: #334155;
+        font-size: 0.84rem;
+        font-weight: 700;
+      }
+
+      .badge-dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: #35a66f;
+      }
+
+      .download {
+        display: inline-flex;
+        min-height: 58px;
+        align-items: center;
+        justify-content: center;
+        gap: 11px;
+        margin-top: 30px;
+        padding: 0 24px;
+        border-radius: 15px;
+        background: var(--blue);
+        box-shadow: 0 12px 24px rgba(23, 105, 224, 0.22);
+        color: #fff;
+        font-size: 1rem;
+        font-weight: 800;
+        text-decoration: none;
+        transition: background 150ms ease, transform 150ms ease, box-shadow 150ms ease;
+      }
+
+      .download:hover {
+        transform: translateY(-2px);
+        background: #105ac5;
+        box-shadow: 0 15px 28px rgba(23, 105, 224, 0.27);
+      }
+
+      .download:focus-visible {
+        outline: 3px solid #8bb9ff;
+        outline-offset: 3px;
+      }
+
+      .download svg {
+        width: 20px;
+        height: 20px;
+        flex: none;
+      }
+
+      .download-note {
+        margin: 12px 0 0 2px;
+        color: var(--muted);
+        font-size: 0.82rem;
+      }
+
+      .app-card {
+        position: relative;
+        display: grid;
+        min-height: 360px;
+        place-items: center;
+        overflow: hidden;
+        border: 1px solid rgba(255, 255, 255, 0.8);
+        border-radius: 28px;
+        background: linear-gradient(145deg, #19345d, #101a2d 72%);
+        box-shadow: 0 30px 70px rgba(16, 26, 45, 0.18);
+      }
+
+      .app-card::before,
+      .app-card::after {
+        position: absolute;
+        width: 260px;
+        height: 260px;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 50%;
+        content: "";
+      }
+
+      .app-card::before {
+        top: -110px;
+        right: -100px;
+      }
+
+      .app-card::after {
+        bottom: -155px;
+        left: -100px;
+        width: 330px;
+        height: 330px;
+      }
+
+      .app-mark {
+        position: relative;
+        z-index: 1;
+        width: min(58%, 210px);
+        aspect-ratio: 1;
+        border: 7px solid rgba(255, 255, 255, 0.14);
+        border-radius: 34px;
+        background: white;
+        box-shadow: 0 24px 50px rgba(0, 0, 0, 0.28);
+      }
+
+      .app-card-label {
+        position: absolute;
+        z-index: 1;
+        right: 24px;
+        bottom: 23px;
+        left: 24px;
+        color: rgba(255, 255, 255, 0.84);
+        font-size: 0.78rem;
+        font-weight: 700;
+        letter-spacing: 0.11em;
+        text-align: center;
+        text-transform: uppercase;
+      }
+
+      .instructions {
+        margin-top: clamp(52px, 8vw, 92px);
+        padding: clamp(22px, 4vw, 34px);
+        border: 1px solid var(--border);
+        border-radius: 22px;
+        background: #fff;
+        box-shadow: 0 14px 36px rgba(15, 23, 42, 0.045);
+      }
+
+      .instructions h2 {
+        margin: 0;
+        font-size: 1.3rem;
+        letter-spacing: -0.025em;
+      }
+
+      .steps {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 22px;
+        margin: 23px 0 0;
+        padding: 0;
+        list-style: none;
+      }
+
+      .steps li {
+        display: flex;
+        align-items: flex-start;
+        gap: 12px;
+        color: #53647d;
+        font-size: 0.92rem;
+        line-height: 1.6;
+      }
+
+      .step-number {
+        display: grid;
+        width: 27px;
+        height: 27px;
+        flex: none;
+        place-items: center;
+        border-radius: 9px;
+        background: #eaf2ff;
+        color: var(--blue);
+        font-size: 0.8rem;
+        font-weight: 800;
+      }
+
+      footer {
+        padding-block: 20px 26px;
+        color: var(--muted);
+        font-size: 0.8rem;
+        text-align: center;
+      }
+
+      @media (max-width: 760px) {
+        .hero {
+          grid-template-columns: 1fr;
+          gap: 34px;
+        }
+
+        .app-card {
+          min-height: 290px;
+        }
+
+        .app-mark {
+          width: min(48%, 170px);
+        }
+
+        .steps {
+          grid-template-columns: 1fr;
+          gap: 15px;
+        }
+      }
+
+      @media (max-width: 420px) {
+        .topbar,
+        main,
+        footer {
+          width: min(100% - 30px, 1040px);
+        }
+
+        .download {
+          width: 100%;
+        }
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        *,
+        *::before,
+        *::after {
+          scroll-behavior: auto !important;
+          transition-duration: 0.01ms !important;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="page">
+      <header class="topbar">
+        <img src="./assets/app-icon.png" alt="" width="36" height="36">
+        <span>A K PLASTIC</span>
+      </header>
+
+      <main>
+        <section class="hero" aria-labelledby="app-name">
+          <div>
+            <p class="eyebrow">Official Android app</p>
+            <h1 id="app-name">A K PLASTIC</h1>
+            <p class="lead">
+              Your practical, offline billing companion for invoices, customers,
+              raw materials, and monthly statements.
+            </p>
+            <div class="badges" aria-label="App details">
+              <span class="badge"><span class="badge-dot" aria-hidden="true"></span>Android</span>
+              <span class="badge">Version <span id="app-version">1.0.0</span></span>
+            </div>
+            <a
+              class="download"
+              href="https://github.com/mohammedbalsaniya/A-k-Invoce-/releases/latest/download/AK-PLASTIC.apk"
+              aria-label="Download A K PLASTIC for Android"
+            >
+              <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                <path d="M12 3v11m0 0 4-4m-4 4-4-4M5 16v3h14v-3" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+              Download for Android
+            </a>
+            <p class="download-note">APK installer · Latest release</p>
+          </div>
+
+          <div class="app-card" aria-label="A K PLASTIC app icon">
+            <img class="app-mark" src="./assets/app-icon.png" alt="A K PLASTIC app logo" width="210" height="210">
+            <span class="app-card-label">Simple · Reliable · Offline</span>
+          </div>
+        </section>
+
+        <section class="instructions" aria-labelledby="install-heading">
+          <h2 id="install-heading">Install the app</h2>
+          <ol class="steps">
+            <li><span class="step-number">1</span><span>Tap <strong>Download for Android</strong> and wait for the APK to finish downloading.</span></li>
+            <li><span class="step-number">2</span><span>Open the downloaded <strong>AK-PLASTIC.apk</strong> from your browser or Downloads folder.</span></li>
+            <li><span class="step-number">3</span><span>If Android asks, allow your browser or file manager to install unknown apps, then tap <strong>Install</strong>.</span></li>
+          </ol>
+        </section>
+      </main>
+
+      <footer>A K PLASTIC · Android</footer>
+    </div>
+
+    <script>
+      const releaseApi = 'https://api.github.com/repos/mohammedbalsaniya/A-k-Invoce-/releases/latest';
+      const versionLabel = document.getElementById('app-version');
+
+      fetch(releaseApi, { headers: { Accept: 'application/vnd.github+json' } })
+        .then(response => {
+          if (!response.ok) throw new Error(`Release lookup failed: ${response.status}`);
+          return response.json();
+        })
+        .then(release => {
+          if (typeof release.tag_name === 'string' && release.tag_name.trim()) {
+            versionLabel.textContent = release.tag_name.trim().replace(/^v(?=\d)/i, '');
+          }
+        })
+        .catch(() => {
+          versionLabel.textContent = '1.0.0';
+        });
+    </script>
+  </body>
+</html>
