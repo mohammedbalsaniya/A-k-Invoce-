@@ -3,7 +3,6 @@ import * as FileSystem from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
 import { getDbConnection } from '../database/database';
 import { normalizeLegacyRawMaterialEntry } from '../utils/legacyRawMaterial';
-import { createBackupPdf } from '../utils/backupPdf';
 
 const APP_ID = 'AK_PLASTIC';
 const BACKUP_VERSION = 1;
@@ -138,10 +137,9 @@ export const backupService = {
     if ((await FileSystem.getInfoAsync(filePath)).exists) {
       filePath = `${BACKUP_DIRECTORY}${baseName}_${Date.now()}.pdf`;
     }
-    const pdfBase64 = await createBackupPdf(payload);
-    await FileSystem.writeAsStringAsync(filePath, pdfBase64, { encoding: FileSystem.EncodingType.Base64 });
+    await FileSystem.writeAsStringAsync(filePath, JSON.stringify(payload), { encoding: FileSystem.EncodingType.UTF8 });
     if (!(await Sharing.isAvailableAsync())) throw new Error('Sharing is not available on this device.');
-    await Sharing.shareAsync(filePath, { mimeType: 'application/pdf', dialogTitle: 'Export AK PLASTIC PDF backup' });
+    await Sharing.shareAsync(filePath, { mimeType: 'application/json', dialogTitle: 'Export AK PLASTIC backup' });
     await db.runAsync(
       `INSERT INTO app_metadata (key, value) VALUES ('last_backup_at', ?)
        ON CONFLICT(key) DO UPDATE SET value = excluded.value`,
@@ -152,7 +150,7 @@ export const backupService = {
 
   selectAndValidate: async () => {
     const result = await DocumentPicker.getDocumentAsync({
-      type: ['application/json', 'application/octet-stream', '*/*'],
+      type: 'application/pdf',
       copyToCacheDirectory: true,
       multiple: false,
     });
@@ -162,9 +160,6 @@ export const backupService = {
     try {
       payload = JSON.parse(text);
     } catch {
-      if (text.startsWith('%PDF-')) {
-        throw new Error('PDF backup copies are for viewing only. Restore requires an .akbackup file.');
-      }
       throw new Error('The selected backup file is not valid JSON.');
     }
     validatePayload(payload);

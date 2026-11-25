@@ -56,7 +56,7 @@ export default function Settings() {
     setBackupBusy(true);
     try {
       setLastBackup(await backupService.create());
-      Alert.alert('PDF backup ready', 'A PDF copy was created and shared. PDF backups are for viewing only and cannot be restored.');
+      Alert.alert('Backup ready', 'Your backup file was created and shared.');
     } catch (error) {
       Alert.alert('Could not create backup', error.message);
     } finally {
@@ -248,9 +248,9 @@ export default function Settings() {
           <Card.Content>
             <Text variant="titleLarge" style={styles.sectionTitle}>Data Backup</Text>
             <Text variant="bodyMedium">Last Backup: {lastBackup ? new Date(lastBackup).toLocaleString() : 'Not created'}</Text>
-            <Text variant="bodySmall" style={styles.backupNote}>Create Backup exports a PDF copy for viewing. PDF copies cannot be restored; Restore Backup accepts existing .akbackup files.</Text>
+            <Text variant="bodySmall" style={styles.backupNote}>Backup data stays in the existing restorable format and uses a .pdf filename so it can be selected in the file picker.</Text>
             <Button mode="contained" icon="backup-restore" onPress={createBackup} loading={backupBusy} disabled={backupBusy} style={styles.backupButton}>
-              Create PDF Backup
+              Create Backup (.pdf)
             </Button>
             <Button mode="outlined" icon="restore" onPress={chooseBackup} loading={backupBusy} disabled={backupBusy}>
               Restore Backup
