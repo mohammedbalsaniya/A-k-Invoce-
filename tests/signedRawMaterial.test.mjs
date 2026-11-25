@@ -9,6 +9,8 @@ import {
   normalizeRawMaterialEntry,
 } from '../services/statementCalculator.js';
 import { normalizeLegacyRawMaterialEntry } from '../utils/legacyRawMaterial.js';
+import { encodeBytesToBase64 } from '../utils/encodeBase64.js';
+import { processInBatches } from '../utils/processInBatches.js';
 
 test('calculates signed raw-material totals and statement NEW', () => {
   const entries = [
@@ -68,4 +70,31 @@ test('migrates legacy RETURN rows to canonical signed quantities', () => {
     bag_weight: 25,
     total_weight: 250,
   }).total_weight, -250);
+});
+
+test('encodes large PDF byte arrays in yielding base64 chunks', async () => {
+  const bytes = Uint8Array.from({ length: 150_123 }, (_, index) => index % 251);
+  const progress = [];
+  const encoded = await encodeBytesToBase64(bytes, value => progress.push(value));
+
+  assert.equal(encoded, Buffer.from(bytes).toString('base64'));
+  assert.equal(progress.length, 4);
+  assert.deepEqual(progress.at(-1), { completed: bytes.length, total: bytes.length });
+});
+
+test('processes large PDF tables in UI-yielding batches', async () => {
+  const rows = Array.from({ length: 125 }, (_, index) => index);
+  const processed = [];
+  const progress = [];
+  let timerRan = false;
+  setTimeout(() => { timerRan = true; }, 0);
+
+  await processInBatches(rows, row => processed.push(row), value => progress.push(value));
+
+  assert.equal(processed.length, rows.length);
+  assert.equal(timerRan, true);
+  assert.deepEqual(progress, [
+    { completed: 50, total: 125 },
+    { completed: 100, total: 125 },
+  ]);
 });

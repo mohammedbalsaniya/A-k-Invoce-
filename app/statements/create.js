@@ -31,6 +31,7 @@ export default function CreateStatement() {
   const [source, setSource] = useState(null);
   const [loading, setLoading] = useState(false);
   const [customerLoading, setCustomerLoading] = useState(false);
+  const [generationStatus, setGenerationStatus] = useState('');
 
   const numericMonth = Number(month);
   const numericYear = Number(year);
@@ -111,7 +112,9 @@ export default function CreateStatement() {
       return;
     }
     setLoading(true);
+    setGenerationStatus('Preparing statement PDF…');
     try {
+      await new Promise(resolve => setTimeout(resolve, 50));
       const settings = await settingsRepository.getSettings();
       const statement = {
         customerId: customer.id,
@@ -132,7 +135,30 @@ export default function CreateStatement() {
         finalizedAt: new Date().toISOString(),
         snapshotVersion: 1,
       };
-      statement.pdfUri = await statementPdfService.generate(statement);
+      statement.pdfUri = await statementPdfService.generate(statement, {
+        onProgress: progress => {
+          if (progress.stage) {
+            const stageLabels = {
+              'raw-materials': 'Adding raw-material entries to PDF…',
+              balance: 'Adding raw-material balance to PDF…',
+              production: 'Adding production rows to PDF…',
+              amounts: 'Adding statement amounts to PDF…',
+              saving: 'Saving PDF file…',
+              encoding: 'Encoding PDF…',
+            };
+            if (progress.stage === 'encoding' && progress.total) {
+              const percent = Math.floor((progress.completed / progress.total) * 100);
+              setGenerationStatus(`Encoding PDF (${percent}%)…`);
+            } else {
+              setGenerationStatus(stageLabels[progress.stage] || 'Generating statement PDF…');
+            }
+          } else {
+            setGenerationStatus(`Adding rows to PDF (${progress.completed}/${progress.total})…`);
+          }
+        },
+      });
+      setGenerationStatus('Saving statement snapshot…');
+      await new Promise(resolve => setTimeout(resolve, 0));
       await statementRepository.create(statement);
       Alert.alert('Statement saved', 'The statement and its snapshot have been saved.', [
         { text: 'OK', onPress: () => router.replace('/statements') },
@@ -141,6 +167,7 @@ export default function CreateStatement() {
       Alert.alert('Could not generate statement', error.message);
     } finally {
       setLoading(false);
+      setGenerationStatus('');
     }
   };
 
@@ -212,6 +239,7 @@ export default function CreateStatement() {
           <Button mode="contained" icon="file-pdf-box" onPress={generate} loading={loading} disabled={loading} style={styles.generate}>
             Generate Statement PDF
           </Button>
+          {loading && <Text accessibilityLiveRegion="polite" style={styles.generationStatus}>{generationStatus}</Text>}
         </>
       )}
 
@@ -245,4 +273,5 @@ const styles = StyleSheet.create({
   rawMaterialName: { flex: 1, marginRight: 12 },
   hint: { marginBottom: 12 },
   generate: { marginVertical: 4, paddingVertical: 6 },
+  generationStatus: { marginTop: 8, textAlign: 'center' },
 });

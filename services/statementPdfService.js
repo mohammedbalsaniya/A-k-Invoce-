@@ -8,6 +8,8 @@ import {
   normalizeRawMaterialEntry,
   sanitizeFilename,
 } from './statementCalculator';
+import { encodeBytesToBase64 } from '../utils/encodeBase64';
+import { processInBatches } from '../utils/processInBatches';
 
 const DIRECTORY = `${FileSystem.documentDirectory}statements/`;
 const PAGE_WIDTH = 595.28;
@@ -23,15 +25,28 @@ const money = value => `INR ${Number(value || 0).toFixed(2)}`;
 const monthName = month => new Date(2000, month - 1, 1).toLocaleString('en', { month: 'long' });
 
 const truncate = (text, font, size, maxWidth) => {
-  let value = String(text ?? '');
-  while (value.length && font.widthOfTextAtSize(value, size) > maxWidth) {
-    value = `${value.slice(0, -2)}...`;
+  const value = String(text ?? '');
+  if (font.widthOfTextAtSize(value, size) <= maxWidth) return value;
+
+  const characters = Array.from(value);
+  const suffix = '...';
+  if (font.widthOfTextAtSize(suffix, size) > maxWidth) return '';
+
+  let low = 0;
+  let high = characters.length;
+  while (low < high) {
+    const middle = Math.ceil((low + high) / 2);
+    if (font.widthOfTextAtSize(`${characters.slice(0, middle).join('')}${suffix}`, size) <= maxWidth) {
+      low = middle;
+    } else {
+      high = middle - 1;
+    }
   }
-  return value;
+  return `${characters.slice(0, low).join('')}${suffix}`;
 };
 
 export const statementPdfService = {
-  generate: async statement => {
+  generate: async (statement, { onProgress = () => {} } = {}) => {
     const pdf = await PDFDocument.create();
     const font = await pdf.embedFont(StandardFonts.Helvetica);
     const bold = await pdf.embedFont(StandardFonts.HelveticaBold);
@@ -60,7 +75,7 @@ export const statementPdfService = {
       line(y);
       y -= 16;
     };
-    const table = (headers, widths, rows, render, totalLabel, totalValue, rowColor, totalColor = COLOR) => {
+    const table = async (headers, widths, rows, render, totalLabel, totalValue, rowColor, totalColor = COLOR) => {
       const tableRight = LEFT + widths.reduce((total, width) => total + width, 0);
       const xPositions = widths.reduce((positions, width, index) => {
         positions.push(index ? positions[index - 1] + widths[index - 1] : LEFT);
@@ -74,7 +89,7 @@ export const statementPdfService = {
         y -= 15;
       };
       drawHeader();
-      rows.forEach(row => {
+      await processInBatches(rows, row => {
         if (y < 48) {
           addPage();
           drawHeader();
@@ -87,7 +102,7 @@ export const statementPdfService = {
         y -= 14;
         line(y, LEFT, tableRight);
         y -= 2;
-      });
+      }, onProgress);
       ensureSpace(22);
       if (totalLabel) {
         text(totalLabel, LEFT, y, 8, bold);
@@ -109,7 +124,8 @@ export const statementPdfService = {
     section('RAW MATERIAL');
     const rawMaterials = statement.rawMaterials.map(normalizeRawMaterialEntry);
     const rawMaterialTotal = calculateRawMaterialNetWeight(rawMaterials);
-    table(
+    onProgress({ stage: 'raw-materials' });
+    await table(
       ['DATE', 'RAW MATERIAL', 'BAG W.T', 'NO. OF BAG', 'TOTAL W.T (KG)'],
       [70, 210, 72, 76, 91],
       rawMaterials,
@@ -129,10 +145,12 @@ export const statementPdfService = {
       ['1%', statement.balance.rejectionWeight],
       ['BALANCE', statement.balance.balanceWeight],
     ];
-    table(['DESCRIPTION', 'WEIGHT (KG)'], [170, 110], balanceRows, row => [row[0], formatWeight(row[1])]);
+    onProgress({ stage: 'balance' });
+    await table(['DESCRIPTION', 'WEIGHT (KG)'], [170, 110], balanceRows, row => [row[0], formatWeight(row[1])]);
 
     section('PRODUCTION');
-    table(
+    onProgress({ stage: 'production' });
+    await table(
       ['DATE', 'ITEM NAME', 'QTY OF PC.', 'W.T PER PC.', 'TOTAL W.T', 'RATE', 'AMOUNT'],
       [57, 125, 61, 68, 66, 60, 82],
       statement.production,
@@ -157,15 +175,22 @@ export const statementPdfService = {
       ['TDS - 1%', statement.amounts.tdsAmount],
       ['Total', statement.amounts.totalAmount],
     ];
-    table(['DESCRIPTION', 'AMOUNT'], [170, 110], amountRows, row => [row[0], money(row[1])]);
+    onProgress({ stage: 'amounts' });
+    await table(['DESCRIPTION', 'AMOUNT'], [170, 110], amountRows, row => [row[0], money(row[1])]);
 
-    const bytes = await pdf.saveAsBase64();
+    onProgress({ stage: 'saving' });
+    await new Promise(resolve => setTimeout(resolve, 0));
+    const bytes = await pdf.save();
+    onProgress({ stage: 'encoding' });
+    const base64 = await encodeBytesToBase64(bytes, progress => {
+      onProgress({ ...progress, stage: 'encoding' });
+    });
     await FileSystem.makeDirectoryAsync(DIRECTORY, { intermediates: true });
     const base = `${sanitizeFilename(statement.customerName)}_Statement_${monthName(statement.month)}_${statement.year}`;
     let path = `${DIRECTORY}${base}.pdf`;
     const exists = await FileSystem.getInfoAsync(path);
     if (exists.exists) path = `${DIRECTORY}${base}_${Date.now()}.pdf`;
-    await FileSystem.writeAsStringAsync(path, bytes, { encoding: FileSystem.EncodingType.Base64 });
+    await FileSystem.writeAsStringAsync(path, base64, { encoding: FileSystem.EncodingType.Base64 });
     return path;
   },
 };
